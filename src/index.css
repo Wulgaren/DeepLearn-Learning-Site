@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+body {
+  @apply antialiased min-h-screen;
+}
