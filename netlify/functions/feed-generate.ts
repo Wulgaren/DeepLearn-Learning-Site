@@ -84,6 +84,7 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
       model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
+      max_tokens: 8192,
     });
     raw = completion.choices[0]?.message?.content?.trim() ?? '';
   } catch (err) {
