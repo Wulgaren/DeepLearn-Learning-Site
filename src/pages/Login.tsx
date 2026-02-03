@@ -18,7 +18,14 @@ export default function Login() {
       if (err) throw err;
       navigate('/', { replace: true });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      const message = err instanceof Error ? err.message : 'Login failed';
+      if (message.toLowerCase().includes('email not confirmed')) {
+        setError(
+          'Your email isn’t confirmed yet. Check your inbox (and spam) for the confirmation link, or ask the site admin to disable “Confirm email” in Supabase Auth settings.'
+        );
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }

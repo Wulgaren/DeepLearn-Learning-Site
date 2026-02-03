@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:netlify": "netlify dev",
+    "dev:netlify": "NODE_ENV=test node node_modules/netlify-cli/bin/run.js dev",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

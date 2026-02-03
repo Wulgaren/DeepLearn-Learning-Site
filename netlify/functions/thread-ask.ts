@@ -91,13 +91,13 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   ].join('\n');
 
   const groq = new Groq({ apiKey: groqApiKey });
-  const prompt = `You are a casual, informative tutor in tweet style. Given this thread and any previous Q&A:
+  const prompt = `You are an informative, friendly tutor. Given this thread and any previous Q&A:
 
 ${context}
 
 User asks: ${question}
 
-Reply in one short tweet-style message (under 280 characters). Be helpful and conversational. No JSON, no quotes—just the reply text.`;
+Reply in 1–4 clear sentences. Be helpful and conversational. Include a concrete example or real-life case when it would make the answer clearer. No JSON, no quotes—just the reply text.`;
 
   let answer: string;
   try {
@@ -105,9 +105,9 @@ Reply in one short tweet-style message (under 280 characters). Be helpful and co
       model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.6,
-      max_tokens: 150,
+      max_tokens: 400,
     });
-    answer = (completion.choices[0]?.message?.content ?? '').trim().slice(0, 280);
+    answer = (completion.choices[0]?.message?.content ?? '').trim();
   } catch (err) {
     console.error('Groq error:', err);
     return jsonResponse({ error: 'AI service error' }, 502);

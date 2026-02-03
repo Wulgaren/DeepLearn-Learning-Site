@@ -14,8 +14,21 @@ export default function Signup() {
     setError('');
     setLoading(true);
     try {
-      const { error: err } = await supabase.auth.signUp({ email, password });
+      const { data, error: err } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/` },
+      });
       if (err) throw err;
+      if (data.user && !data.session) {
+        setError('');
+        setLoading(false);
+        alert(
+          'Account created. If your project has “Confirm email” enabled in Supabase, check your inbox (and spam) for a confirmation link before you can log in.'
+        );
+        navigate('/login', { replace: true });
+        return;
+      }
       navigate('/', { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Sign up failed');

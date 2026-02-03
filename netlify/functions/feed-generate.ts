@@ -29,7 +29,7 @@ function getUserId(event: HandlerEvent): string | null {
 }
 
 const THREADS_COUNT = 6;
-const REPLIES_PER_THREAD = 4;
+const REPLIES_PER_THREAD = 5;
 
 export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   if (event.httpMethod === 'OPTIONS') {
@@ -65,13 +65,18 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const groq = new Groq({ apiKey: groqApiKey });
 
-  const prompt = `You are a helpful educator. Generate exactly ${THREADS_COUNT} Twitter-style threads about the topic: "${topic}".
+  const prompt = `You are an expert educator. Generate exactly ${THREADS_COUNT} informative threads about the topic: "${topic}".
 
-Each thread has one main tweet (a hook or key idea) and ${REPLIES_PER_THREAD} reply tweets that expand on it in a casual, informative style.
+Each thread has one main post (a clear hook or key idea, 1–2 sentences) and ${REPLIES_PER_THREAD} reply posts that expand on it. Requirements:
+- Be substantive and informative. Explain concepts clearly; avoid one-line definitions or vague bullets.
+- Include real-life examples: named people, works, events, or concrete cases where they fit (e.g. artists, inventions, historical moments, studies).
+- Each main post or reply can be 1–4 sentences (up to ~400 characters each). Prioritize clarity and usefulness over brevity.
+- Keep a conversational but knowledgeable tone. No bullet lists—write in flowing sentences.
+
 Return ONLY valid JSON, no markdown or explanation, in this exact shape:
-{"threads":[{"main":"...","replies":["...","...","...","..."]},{"main":"...","replies":["...","...","...","..."]}, ...]}
+{"threads":[{"main":"...","replies":["...","...","...","...","..."]},{"main":"...","replies":["...","...","...","...","..."]}, ...]}
 
-Use short, punchy tweet-style text (under 280 characters per tweet). Make the content educational and engaging.`;
+Make the content educational, engaging, and worth reading.`;
 
   let raw: string;
   try {
