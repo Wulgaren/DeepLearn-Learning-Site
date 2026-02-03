@@ -76,7 +76,7 @@ Each thread has one main post (a clear hook or key idea, 1–2 sentences) and ${
 Return ONLY valid JSON, no markdown or explanation, in this exact shape:
 {"threads":[{"main":"...","replies":["...","...","...","...","..."]},{"main":"...","replies":["...","...","...","...","..."]}, ...]}
 
-Make the content educational, engaging, and worth reading.`;
+Rules: Output a single JSON object only. Do not wrap in code fences. Do not put actual newline characters inside any string—keep each "main" and "replies" item on one line (use spaces, not line breaks). No trailing commas. Make the content educational, engaging, and worth reading.`;
 
   let raw: string;
   try {
@@ -91,11 +91,28 @@ Make the content educational, engaging, and worth reading.`;
     return jsonResponse({ error: 'AI service error' }, 502);
   }
 
-  let parsed: { threads?: Array<{ main?: string; replies?: string[] }> };
-  try {
-    const cleaned = raw.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-    parsed = JSON.parse(cleaned);
-  } catch {
+  function extractAndParse(rawText: string): { threads?: Array<{ main?: string; replies?: string[] }> } | null {
+    let cleaned = rawText.trim();
+    // Strip markdown code blocks (optional "json" tag, multiline)
+    cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
+    // If there's still leading/trailing text, try to extract the JSON object (first { to last })
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+    }
+    // Fix trailing commas (invalid in JSON)
+    cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
+    try {
+      return JSON.parse(cleaned) as { threads?: Array<{ main?: string; replies?: string[] }> };
+    } catch {
+      return null;
+    }
+  }
+
+  const parsed = extractAndParse(raw);
+  if (!parsed) {
+    console.error('Feed generate: failed to parse AI response. Raw (first 800 chars):', raw.slice(0, 800));
     return jsonResponse({ error: 'Invalid AI response format' }, 502);
   }
 
