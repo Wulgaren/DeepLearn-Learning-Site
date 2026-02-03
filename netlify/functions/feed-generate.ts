@@ -1,5 +1,6 @@
 import type { HandlerEvent, HandlerResponse } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import { jsonrepair } from 'jsonrepair';
 import Groq from 'groq-sdk';
 
 const corsHeaders = {
@@ -76,7 +77,7 @@ Each thread has one main post (a clear hook or key idea, 1–2 sentences) and ${
 Return ONLY valid JSON, no markdown or explanation, in this exact shape:
 {"threads":[{"main":"...","replies":["...","...","...","...","..."]},{"main":"...","replies":["...","...","...","...","..."]}, ...]}
 
-Rules: Output a single JSON object only. Do not wrap in code fences. Do not put actual newline characters inside any string—keep each "main" and "replies" item on one line (use spaces, not line breaks). No trailing commas. Make the content educational, engaging, and worth reading.`;
+Rules: Output a single JSON object only. Do not wrap in code fences. Do not put actual newline characters inside any string—keep each main and replies item on one line. Never use the double-quote character inside any main or reply string (use single quotes for titles and quoted speech, e.g. 'The Artist is Present'). No trailing commas. Make the content educational, engaging, and worth reading.`;
 
   let raw: string;
   try {
@@ -107,13 +108,18 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
     try {
       return JSON.parse(cleaned) as { threads?: Array<{ main?: string; replies?: string[] }> };
     } catch {
-      return null;
+      try {
+        const repaired = jsonrepair(cleaned);
+        return JSON.parse(repaired) as { threads?: Array<{ main?: string; replies?: string[] }> };
+      } catch {
+        return null;
+      }
     }
   }
 
   const parsed = extractAndParse(raw);
   if (!parsed) {
-    console.error('Feed generate: failed to parse AI response. Raw (first 800 chars):', raw.slice(0, 800));
+    console.error('Feed generate: failed to parse AI response. Raw (first 1200 chars):', raw.slice(0, 1200));
     return jsonResponse({ error: 'Invalid AI response format' }, 502);
   }
 
