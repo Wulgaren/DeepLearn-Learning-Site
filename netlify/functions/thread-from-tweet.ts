@@ -2,7 +2,7 @@ import type { HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import Groq from 'groq-sdk';
 import { jsonrepair } from 'jsonrepair';
-import { corsHeaders, getUserId, jsonResponse } from './_shared';
+import { corsHeaders, getUserId, jsonResponse, sanitizeForPrompt, sanitizeForDb } from './_shared';
 
 const REPLIES_COUNT = 5;
 
@@ -25,7 +25,8 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   } catch {
     return jsonResponse({ error: 'Invalid JSON body' }, 400);
   }
-  const tweet = typeof body.tweet === 'string' ? body.tweet.trim() : '';
+  const rawTweet = typeof body.tweet === 'string' ? body.tweet.trim() : '';
+  const tweet = sanitizeForPrompt(rawTweet, 1000);
   if (!tweet) {
     return jsonResponse({ error: 'Missing or empty tweet' }, 400);
   }
@@ -63,9 +64,10 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
     topicRow = inserted;
   }
 
+  const mainPostForDb = sanitizeForDb(rawTweet, 1000);
   const { data: threadRow, error: threadError } = await supabase
     .from('threads')
-    .insert({ topic_id: topicRow.id, main_post: tweet, replies: [] })
+    .insert({ topic_id: topicRow.id, main_post: mainPostForDb, replies: [] })
     .select('id')
     .single();
 
@@ -77,7 +79,9 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   const groq = new Groq({ apiKey: groqApiKey });
   const prompt = `You are an expert educator. This is a single "tweet" (main post) that a reader clicked on. Generate exactly ${REPLIES_COUNT} reply posts that expand on it in a thread. Be factual and accurate: only state true, verifiable information. Use real people, real events, real studies—no invented examples. If something is uncertain, say so. Each reply 1–4 sentences, up to ~400 characters. Conversational, flowing sentences—no bullet lists.
 
-Main post: "${tweet.replace(/"/g, "'")}"
+---MAIN POST---
+${tweet}
+---END MAIN POST---
 
 Return ONLY valid JSON, no markdown, in this exact shape:
 {"replies":["...","...","...","...","..."]}
@@ -96,6 +100,11 @@ Rules: One JSON object only. No code fences. No newlines inside strings. Use sin
   } catch (err) {
     console.error('Groq error:', err);
     return jsonResponse({ error: 'AI service error' }, 502);
+  }
+
+  if (!raw) {
+    console.error('Groq returned empty response for thread-from-tweet');
+    return jsonResponse({ error: 'AI returned an empty response. Please try again.' }, 502);
   }
 
   function parseReplies(text: string): string[] {
@@ -124,6 +133,11 @@ Rules: One JSON object only. No code fences. No newlines inside strings. Use sin
   }
 
   const replies = parseReplies(raw);
+  if (replies.length === 0) {
+    console.error('Groq response could not be parsed or had no replies');
+    return jsonResponse({ error: 'AI could not generate replies. Please try again.' }, 502);
+  }
+
   const { error: updateError } = await supabase
     .from('threads')
     .update({ replies })

@@ -2,7 +2,7 @@ import type { HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { jsonrepair } from 'jsonrepair';
 import Groq from 'groq-sdk';
-import { corsHeaders, getUserId, jsonResponse } from './_shared';
+import { corsHeaders, getUserId, jsonResponse, sanitizeForPrompt, sanitizeForDb } from './_shared';
 
 const THREADS_COUNT = 6;
 const REPLIES_PER_THREAD = 5;
@@ -26,7 +26,8 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   } catch {
     return jsonResponse({ error: 'Invalid JSON body' }, 400);
   }
-  const topic = typeof body.topic === 'string' ? body.topic.trim() : '';
+  const rawTopic = typeof body.topic === 'string' ? body.topic.trim() : '';
+  const topic = sanitizeForPrompt(rawTopic, 500);
   if (!topic) {
     return jsonResponse({ error: 'Missing or empty topic' }, 400);
   }
@@ -41,7 +42,11 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const groq = new Groq({ apiKey: groqApiKey });
 
-  const prompt = `You are an expert educator. Generate exactly ${THREADS_COUNT} informative threads about the topic: "${topic}".
+  const prompt = `You are an expert educator. Generate exactly ${THREADS_COUNT} informative threads about the topic below.
+
+---TOPIC---
+${topic}
+---END TOPIC---
 
 Each thread has one main post (a clear hook or key idea, 1–2 sentences) and ${REPLIES_PER_THREAD} reply posts that expand on it. Requirements:
 - Be factual and accurate. Only state information that is true and verifiable. Use real people, real events, real studies, real works—no invented examples or speculation. If something is uncertain, say so.
@@ -104,9 +109,10 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
     return jsonResponse({ error: 'No threads generated' }, 502);
   }
 
+  const topicForDb = sanitizeForDb(rawTopic, 500);
   const { data: topicRow, error: topicError } = await supabase
     .from('topics')
-    .insert({ user_id: userId, query: topic })
+    .insert({ user_id: userId, query: topicForDb })
     .select('id')
     .single();
 

@@ -1,7 +1,7 @@
 import type { HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import Groq from 'groq-sdk';
-import { corsHeaders, getUserId, jsonResponse } from './_shared';
+import { corsHeaders, getUserId, jsonResponse, validateUuid, sanitizeForPrompt, sanitizeForDb } from './_shared';
 
 export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   if (event.httpMethod === 'OPTIONS') {
@@ -16,18 +16,24 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 
-  let body: { threadId?: string; question?: string; replyContext?: string };
+  let body: { threadId?: string; question?: string; replyContext?: string; replyIndex?: number | null };
   try {
     body = event.body ? JSON.parse(event.body) : {};
   } catch {
     return jsonResponse({ error: 'Invalid JSON body' }, 400);
   }
   const threadId = body.threadId;
-  const question = typeof body.question === 'string' ? body.question.trim() : '';
-  const replyContext = typeof body.replyContext === 'string' ? body.replyContext.trim() : undefined;
-  if (!threadId || !question) {
-    return jsonResponse({ error: 'Missing threadId or question' }, 400);
+  if (!validateUuid(threadId)) {
+    return jsonResponse({ error: 'Invalid thread' }, 400);
   }
+  const rawQuestion = typeof body.question === 'string' ? body.question.trim() : '';
+  const question = sanitizeForPrompt(rawQuestion, 2000);
+  if (!question) {
+    return jsonResponse({ error: 'Missing or invalid question' }, 400);
+  }
+  const rawReplyContext = typeof body.replyContext === 'string' ? body.replyContext.trim() : undefined;
+  const replyContext = rawReplyContext ? sanitizeForPrompt(rawReplyContext, 2000) : undefined;
+  const replyIndex = typeof body.replyIndex === 'number' && body.replyIndex >= 0 ? body.replyIndex : null;
 
   const supabaseUrl = process.env.SUPABASE_URL!;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -53,28 +59,27 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
     return jsonResponse({ error: 'Forbidden' }, 403);
   }
 
-  const { data: followUps } = await supabase
-    .from('follow_ups')
-    .select('user_question, ai_answer')
-    .eq('thread_id', threadId)
-    .order('created_at', { ascending: true });
-
-  const replies = (thread.replies ?? []) as string[];
-  const context = [
-    'Thread (main): ' + thread.main_post,
-    ...replies.map((r, i) => `Reply ${i + 1}: ${r}`),
-    ...(followUps ?? []).flatMap((f) => [`Q: ${f.user_question}`, `A: ${f.ai_answer}`]),
-  ].join('\n');
+  const repliesRaw = (thread.replies ?? []) as Array<string | { type?: string; content?: string }>;
+  const mainSafe = sanitizeForPrompt(String(thread.main_post ?? ''), 4000);
+  const replyLines = repliesRaw.map((r, i) => {
+    const text = typeof r === 'string' ? r : String(r?.content ?? '');
+    return `Reply ${i + 1}: ${sanitizeForPrompt(text, 4000)}`;
+  });
+  const context = ['Thread (main): ' + mainSafe, ...replyLines].join('\n');
 
   const groq = new Groq({ apiKey: groqApiKey });
   const contextNote = replyContext
     ? `\nThe user is asking specifically about this part of the thread: «${replyContext}»\nAnswer in that context.\n\n`
     : '';
-  const prompt = `You are an informative, friendly tutor. Given this thread and any previous Q&A:
+  const prompt = `You are an informative, friendly tutor. Given this thread:
 
+---BEGIN THREAD---
 ${context}
+---END THREAD---
 
-${contextNote}User asks: ${question}
+${contextNote}---USER QUESTION---
+${question}
+---END USER QUESTION---
 
 Reply in 1–4 clear sentences. Be helpful and conversational. Only state factual, verifiable information—use real examples, real names, real studies. Do not invent or speculate; if unsure, say so. No JSON, no quotes—just the reply text.`;
 
@@ -92,16 +97,30 @@ Reply in 1–4 clear sentences. Be helpful and conversational. Only state factua
     return jsonResponse({ error: 'AI service error' }, 502);
   }
 
-  const { data: inserted, error: insertError } = await supabase
-    .from('follow_ups')
-    .insert({ thread_id: threadId, user_question: question, ai_answer: answer })
-    .select('id, user_question, ai_answer, created_at')
-    .single();
-
-  if (insertError || !inserted) {
-    console.error('Follow-up insert error:', insertError);
-    return jsonResponse({ error: 'Failed to save answer' }, 500);
+  if (!answer || answer.length < 2) {
+    console.error('Groq returned empty or invalid reply');
+    return jsonResponse({ error: 'AI returned an empty response. Please try again.' }, 502);
   }
 
-  return jsonResponse({ answer, followUp: inserted });
+  const insertAt = replyIndex === null ? repliesRaw.length : replyIndex + 1;
+  const safeQuestion = sanitizeForDb(rawQuestion, 2000);
+  const safeAnswer = sanitizeForDb(answer, 8000);
+  const newReplies = [
+    ...repliesRaw.slice(0, insertAt),
+    { type: 'user', content: safeQuestion },
+    { type: 'ai', content: safeAnswer },
+    ...repliesRaw.slice(insertAt),
+  ];
+
+  const { error: updateError } = await supabase
+    .from('threads')
+    .update({ replies: newReplies })
+    .eq('id', threadId);
+
+  if (updateError) {
+    console.error('Thread update error:', updateError);
+    return jsonResponse({ error: 'Failed to save reply' }, 500);
+  }
+
+  return jsonResponse({ answer });
 }

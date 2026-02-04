@@ -6,14 +6,13 @@ import { getErrorMessage } from '../lib/errors';
 import { useCopyLink } from '../hooks/useCopyLink';
 import CopyLinkToast from '../components/CopyLinkToast';
 import PostRow from '../components/PostRow';
+import type { ThreadReplyItem } from '../types';
 
 export default function Thread() {
   const { threadId } = useParams<{ threadId: string }>();
   const [question, setQuestion] = useState('');
   /** null = form under main post; number = form under that reply index */
   const [replyFormAnchor, setReplyFormAnchor] = useState<number | null>(null);
-  const qaSectionRef = useRef<HTMLElement>(null);
-  const qaListRef = useRef<HTMLDivElement>(null);
   const mainInputRef = useRef<HTMLInputElement>(null);
   const replyInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,22 +37,30 @@ export default function Thread() {
   });
 
   const askMutation = useMutation({
-    mutationFn: ({ q, replyContext }: { q: string; replyContext?: string }) =>
-      askThread(threadId!, q, replyContext),
-    onSuccess: (result) => {
-      queryClient.setQueryData(['thread', threadId], (prev: typeof data) =>
-        prev ? { ...prev, followUps: [...prev.followUps, result.followUp] } : prev
-      );
+    mutationFn: ({
+      q,
+      replyContext,
+      replyIndex,
+    }: {
+      q: string;
+      replyContext?: string;
+      replyIndex: number | null;
+    }) => askThread(threadId!, q, { replyContext, replyIndex }),
+    onSuccess: (result, { q, replyIndex }) => {
+      queryClient.setQueryData(['thread', threadId], (prev: typeof data) => {
+        if (!prev?.thread) return prev;
+        const replies = prev.thread.replies ?? [];
+        const insertAt = replyIndex === null ? replies.length : replyIndex + 1;
+        const newReplies: ThreadReplyItem[] = [
+          ...replies.slice(0, insertAt),
+          { type: 'user', content: q },
+          { type: 'ai', content: result.answer },
+          ...replies.slice(insertAt),
+        ];
+        return { thread: { ...prev.thread, replies: newReplies } };
+      });
       setQuestion('');
-      // Blur so scroll isn't overridden by browser keeping focused input in view
-      (document.activeElement as HTMLElement)?.blur();
-      // Scroll to Q&A section and to the new item after DOM updates
-      setTimeout(() => {
-        qaSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        if (qaListRef.current) {
-          qaListRef.current.scrollTop = qaListRef.current.scrollHeight;
-        }
-      }, 100);
+      setReplyFormAnchor(null);
     },
   });
 
@@ -65,8 +72,8 @@ export default function Thread() {
     e.preventDefault();
     const q = question.trim();
     if (!threadId || !q || askMutation.isPending) return;
-    const context = replyFormAnchor !== null && replies[replyFormAnchor] != null ? replies[replyFormAnchor] : undefined;
-    askMutation.mutate({ q, replyContext: context });
+    const replyContext = replyFormAnchor !== null && replies[replyFormAnchor] != null ? replies[replyFormAnchor] : undefined;
+    askMutation.mutate({ q, replyContext, replyIndex: replyFormAnchor });
   }
 
   function handleShare() {
@@ -78,8 +85,8 @@ export default function Thread() {
   if (threadError && !data) return <p className="py-4 text-red-400">{error}</p>;
   if (!data) return null;
 
-  const { thread, followUps } = data;
-  const replies = Array.isArray(thread.replies) ? thread.replies : [];
+  const { thread } = data;
+  const replies: ThreadReplyItem[] = Array.isArray(thread.replies) ? thread.replies : [];
 
   return (
     <div className="pb-12">
@@ -143,6 +150,7 @@ export default function Thread() {
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 disabled={askMutation.isPending}
+                maxLength={2000}
                 className="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2 disabled:opacity-50"
               />
               <div className="mt-2 flex items-center justify-end">
@@ -162,13 +170,18 @@ export default function Thread() {
 
       {/* Replies */}
       <section className="divide-y divide-zinc-800/80">
-        {replies.map((reply, i) => (
+        {replies.map((reply, i) => {
+          const isTyped = typeof reply !== 'string';
+          const body = isTyped ? reply.content : reply;
+          const label = isTyped ? (reply.type === 'user' ? 'You' : 'AI') : 'Reply';
+          const meta = isTyped ? undefined : `#${i + 1}`;
+          return (
           <article key={i} className="hover:bg-zinc-950/60 transition">
             <PostRow
               as="div"
-              label="Reply"
-              meta={`#${i + 1}`}
-              body={reply}
+              label={label}
+              meta={meta}
+              body={body}
               bodyClassName="mt-1 text-sm leading-relaxed whitespace-pre-wrap break-words text-zinc-200"
               actionClassName="mt-3 flex items-center gap-6 text-xs text-zinc-500"
               actions={
@@ -205,6 +218,7 @@ export default function Thread() {
                       value={question}
                       onChange={(e) => setQuestion(e.target.value)}
                       disabled={askMutation.isPending}
+                      maxLength={2000}
                       className="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2 disabled:opacity-50"
                     />
                     <div className="mt-2 flex items-center justify-end">
@@ -222,31 +236,9 @@ export default function Thread() {
               </div>
             )}
           </article>
-        ))}
+          );
+        })}
       </section>
-
-      {/* Q&A */}
-      {followUps.length > 0 && (
-        <section ref={qaSectionRef} className="mt-6">
-          <h3 className="m-0 text-sm font-semibold text-zinc-400">Q&amp;A</h3>
-          <div ref={qaListRef} className="mt-3 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-            {followUps.map((f) => (
-              <div key={f.id} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
-                <p className="m-0 text-sm leading-relaxed">
-                  <span className="text-xs text-zinc-500 font-semibold">You </span>
-                  <span className="text-zinc-200">{f.user_question}</span>
-                </p>
-                <div className="mt-3 border-t border-zinc-800/80 pt-3">
-                  <p className="m-0 text-sm leading-relaxed">
-                    <span className="text-xs text-zinc-500 font-semibold">AI </span>
-                    <span className="text-zinc-200">{f.ai_answer}</span>
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import type { HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import Groq from 'groq-sdk';
 import { jsonrepair } from 'jsonrepair';
-import { corsHeaders, getUserId, jsonResponse } from './_shared';
+import { corsHeaders, getUserId, jsonResponse, sanitizeForPrompt } from './_shared';
 
 const MAX_TWEETS = 10;
 const MAX_ALREADY_COVERED_IN_PROMPT = 30;
@@ -40,7 +40,11 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
     return jsonResponse({ error: 'Failed to load interests' }, 500);
   }
 
-  const interests = Array.isArray(interestsRow?.tags) ? interestsRow.tags : [];
+  const rawInterests = Array.isArray(interestsRow?.tags) ? interestsRow.tags : [];
+  const interests = rawInterests
+    .filter((t): t is string => typeof t === 'string')
+    .map((t) => sanitizeForPrompt(String(t).trim(), 80))
+    .filter(Boolean);
   if (interests.length === 0) {
     return jsonResponse({ tweets: [] });
   }
@@ -77,14 +81,16 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
     new Set([...threadMainPosts, ...storedSuggestions].filter(Boolean))
   ).slice(0, MAX_ALREADY_COVERED_IN_PROMPT);
 
-  const interestsList = interests.join(', ');
   const alreadyCoveredBlock =
     alreadyCovered.length > 0
-      ? `\n\nIMPORTANT: The user has already been shown or has opened threads for these topics. Do NOT suggest anything similar or duplicate. Generate only NEW, different ideas:\n${alreadyCovered.map((s) => `- ${s.replace(/\n/g, ' ').slice(0, 200)}`).join('\n')}\n`
+      ? `\n\nIMPORTANT: The user has already been shown or has opened threads for these topics. Do NOT suggest anything similar or duplicate. Generate only NEW, different ideas:\n---ALREADY COVERED---\n${alreadyCovered.map((s) => sanitizeForPrompt(String(s).replace(/\n/g, ' '), 200)).join('\n')}\n---END---\n`
       : '';
 
   const groq = new Groq({ apiKey: groqApiKey });
-  const prompt = `The user is interested in: ${interestsList}.${alreadyCoveredBlock}
+  const prompt = `---USER INTERESTS---
+${interests.join(', ')}
+---END USER INTERESTS---
+${alreadyCoveredBlock}
 
 Generate between 5 and ${MAX_TWEETS} short "tweet" ideas that would make this reader want to click and learn more. Each tweet should be an engaging, educational hook (1–2 sentences, under 280 characters). Base ideas on real, factual topics—real concepts, real history, real science, real people or works. Do not invent or speculate. Mix angles: surprising facts, how-to hooks, "why X matters", or intriguing questions.
 
@@ -105,6 +111,11 @@ Rules: Use single quotes inside strings if needed; avoid unescaped double quotes
   } catch (err) {
     console.error('Groq error:', err);
     return jsonResponse({ error: 'AI service error' }, 502);
+  }
+
+  if (!raw) {
+    console.error('Groq returned empty response for home-tweets');
+    return jsonResponse({ error: 'AI returned an empty response. Please try again.' }, 502);
   }
 
   function parseTweets(text: string): string[] {

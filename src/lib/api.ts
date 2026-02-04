@@ -1,7 +1,7 @@
 import type {
   GenerateFeedResponse,
   GetFeedResponse,
-  ThreadWithFollowUps,
+  GetThreadResponse,
   AskThreadResponse,
   ThreadSummary,
 } from '../types';
@@ -43,8 +43,8 @@ export async function getFeed(): Promise<GetFeedResponse> {
   return apiFetch<GetFeedResponse>(`${EDGE_BASE}/api/feed`);
 }
 
-export async function getThread(threadId: string): Promise<ThreadWithFollowUps> {
-  return apiFetch<ThreadWithFollowUps>(
+export async function getThread(threadId: string): Promise<GetThreadResponse> {
+  return apiFetch<GetThreadResponse>(
     `${EDGE_BASE}/api/thread-get?threadId=${encodeURIComponent(threadId)}`
   );
 }
@@ -52,11 +52,16 @@ export async function getThread(threadId: string): Promise<ThreadWithFollowUps> 
 export async function askThread(
   threadId: string,
   question: string,
-  replyContext?: string
+  options?: { replyContext?: string; replyIndex?: number | null }
 ): Promise<AskThreadResponse> {
   return apiFetch<AskThreadResponse>(`${BASE}/thread-ask`, {
     method: 'POST',
-    body: JSON.stringify({ threadId, question, replyContext: replyContext || undefined }),
+    body: JSON.stringify({
+      threadId,
+      question,
+      replyContext: options?.replyContext || undefined,
+      replyIndex: options?.replyIndex ?? null,
+    }),
   });
 }
 

@@ -1,6 +1,6 @@
 import type { Config, Context } from "@netlify/edge-functions";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { corsHeaders, getUserId, jsonResponse } from "./_shared.ts";
+import { corsHeaders, getUserId, jsonResponse, sanitizeTag, MAX_TAGS_COUNT } from "./_shared.ts";
 
 export default async function handler(req: Request, _context: Context): Promise<Response> {
   if (req.method === "OPTIONS") {
@@ -46,7 +46,11 @@ export default async function handler(req: Request, _context: Context): Promise<
   }
   const raw = body.tags;
   const tags = Array.isArray(raw)
-    ? raw.filter((t): t is string => typeof t === "string").map((t) => String(t).trim()).filter(Boolean)
+    ? raw
+        .filter((t): t is string => typeof t === "string")
+        .map((t) => sanitizeTag(t))
+        .filter(Boolean)
+        .slice(0, MAX_TAGS_COUNT)
     : [];
 
   const { error: upsertError } = await supabase.from("user_interests").upsert(

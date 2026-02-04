@@ -77,6 +77,7 @@ export default function Feed() {
                 value={topicInput}
                 onChange={(e) => setTopicInput(e.target.value)}
                 disabled={generateMutation.isPending}
+                maxLength={500}
                 className="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2"
               />
               <div className="mt-2 flex items-center justify-between gap-3">

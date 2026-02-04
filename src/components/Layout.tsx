@@ -108,6 +108,7 @@ export default function Layout() {
                   placeholder="What do you want to learn today?"
                   value={searchTopic}
                   onChange={(e) => setSearchTopic(e.target.value)}
+                  maxLength={500}
                   className="w-full bg-transparent outline-none text-sm placeholder:text-zinc-500"
                 />
               </form>

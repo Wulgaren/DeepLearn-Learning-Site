@@ -11,11 +11,14 @@ export interface ThreadSummary {
   created_at: string;
 }
 
+/** Original thread reply (string) or inline Q&A (typed object) */
+export type ThreadReplyItem = string | { type: 'user' | 'ai'; content: string };
+
 export interface Thread {
   id: string;
   topic_id: string;
   main_post: string;
-  replies: string[];
+  replies: ThreadReplyItem[];
   created_at: string;
 }
 
@@ -26,9 +29,9 @@ export interface FollowUp {
   created_at: string;
 }
 
-export interface ThreadWithFollowUps {
+/** Response from getThread; replies include inline Q&A as subtweets */
+export interface GetThreadResponse {
   thread: Thread;
-  followUps: FollowUp[];
 }
 
 export interface GenerateFeedResponse {
@@ -44,5 +47,4 @@ export interface GetFeedResponse {
 
 export interface AskThreadResponse {
   answer: string;
-  followUp: FollowUp;
 }
