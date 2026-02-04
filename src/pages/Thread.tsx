@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getThread, askThread } from '../lib/api';
@@ -12,6 +12,8 @@ export default function Thread() {
   const [question, setQuestion] = useState('');
   /** null = form under main post; number = form under that reply index */
   const [replyFormAnchor, setReplyFormAnchor] = useState<number | null>(null);
+  const qaSectionRef = useRef<HTMLElement>(null);
+  const qaListRef = useRef<HTMLDivElement>(null);
   const { copyLink, linkCopied } = useCopyLink();
   const queryClient = useQueryClient();
 
@@ -29,6 +31,13 @@ export default function Thread() {
         prev ? { ...prev, followUps: [...prev.followUps, result.followUp] } : prev
       );
       setQuestion('');
+      // Scroll to Q&A section and to the new item after DOM updates
+      setTimeout(() => {
+        qaSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (qaListRef.current) {
+          qaListRef.current.scrollTop = qaListRef.current.scrollHeight;
+        }
+      }, 100);
     },
   });
 
@@ -200,9 +209,9 @@ export default function Thread() {
 
       {/* Q&A */}
       {followUps.length > 0 && (
-        <section className="mt-6">
+        <section ref={qaSectionRef} className="mt-6">
           <h3 className="m-0 text-sm font-semibold text-zinc-400">Q&amp;A</h3>
-          <div className="mt-3 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+          <div ref={qaListRef} className="mt-3 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
             {followUps.map((f) => (
               <div key={f.id} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
                 <p className="m-0 text-sm leading-relaxed">
