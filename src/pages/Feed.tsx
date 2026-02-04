@@ -6,6 +6,7 @@ import type { FeedTopic, ThreadSummary } from '../types';
 
 export default function Feed() {
   const [topicInput, setTopicInput] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
@@ -50,7 +51,10 @@ export default function Feed() {
     e.preventDefault();
     e.stopPropagation();
     const url = getThreadUrl(threadId);
-    void navigator.clipboard.writeText(url);
+    void navigator.clipboard.writeText(url).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
   }
 
   function handleGenerate(e: React.FormEvent) {
@@ -62,6 +66,11 @@ export default function Feed() {
 
   return (
     <div className="pb-10">
+      {linkCopied && (
+        <p className="fixed bottom-6 left-1/2 -translate-x-1/2 z-10 bg-zinc-800 text-zinc-100 text-sm px-4 py-2 rounded-lg shadow-lg border border-zinc-700">
+          Link copied!
+        </p>
+      )}
       {/* Composer */}
       <section className="py-4 border-b border-zinc-800/80">
         <form onSubmit={handleGenerate}>

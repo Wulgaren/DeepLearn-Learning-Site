@@ -8,6 +8,7 @@ type HomeThread = { id: string; main_post: string; replies: string[]; created_at
 export default function Home() {
   const [tagInput, setTagInput] = useState('');
   const [creatingTweet, setCreatingTweet] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -97,12 +98,18 @@ export default function Home() {
     e.stopPropagation();
     const url = getThreadUrl(threadId);
     void navigator.clipboard.writeText(url).then(() => {
-      // Optional: toast or brief "Copied!" feedback
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
     });
   }
 
   return (
     <div className="pb-10">
+      {linkCopied && (
+        <p className="fixed bottom-6 left-1/2 -translate-x-1/2 z-10 bg-zinc-800 text-zinc-100 text-sm px-4 py-2 rounded-lg shadow-lg border border-zinc-700">
+          Link copied!
+        </p>
+      )}
       {/* Interests */}
       <section className="py-4 border-b border-zinc-800/80">
         <h2 className="text-sm font-semibold text-zinc-400 mb-3">Your interests</h2>

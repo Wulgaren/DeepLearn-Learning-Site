@@ -8,6 +8,7 @@ export default function Thread() {
   const [question, setQuestion] = useState('');
   /** null = form under main post; number = form under that reply index */
   const [replyFormAnchor, setReplyFormAnchor] = useState<number | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const queryClient = useQueryClient();
 
   const { data, isLoading: loading, error: threadError } = useQuery({
@@ -43,7 +44,10 @@ export default function Thread() {
 
   function handleShare() {
     if (!threadId) return;
-    void navigator.clipboard.writeText(getThreadUrl(threadId));
+    void navigator.clipboard.writeText(getThreadUrl(threadId)).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
   }
 
   if (loading) return <p className="py-4 text-zinc-500">Loading thread…</p>;
@@ -55,6 +59,11 @@ export default function Thread() {
 
   return (
     <div className="pb-12">
+      {linkCopied && (
+        <p className="fixed bottom-6 left-1/2 -translate-x-1/2 z-10 bg-zinc-800 text-zinc-100 text-sm px-4 py-2 rounded-lg shadow-lg border border-zinc-700">
+          Link copied!
+        </p>
+      )}
       <div className="sticky top-[52px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80">
         <div className="px-1 py-2 flex items-center gap-3">
           <Link to="/" className="text-zinc-300 no-underline hover:text-white">
