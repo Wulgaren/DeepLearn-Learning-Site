@@ -1,3 +1,11 @@
+import type {
+  GenerateFeedResponse,
+  GetFeedResponse,
+  ThreadWithFollowUps,
+  AskThreadResponse,
+  ThreadSummary,
+} from '../types';
+
 const BASE = '/.netlify/functions';
 const EDGE_BASE = ''; // edge functions at /api/*
 
@@ -9,105 +17,74 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   return headers;
 }
 
-export async function generateFeed(topic: string): Promise<{
-  topicId: string;
-  threadIds: string[];
-  threads: Array<{ id: string; main_post: string; replies: string[]; created_at: string }>;
-}> {
-  const res = await fetch(`${BASE}/feed-generate`, {
+async function apiFetch<T>(
+  url: string,
+  options: { method?: string; body?: string } = {}
+): Promise<T> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(url, {
+    method: options.method,
+    body: options.body,
+    headers: headers as Record<string, string>,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error((data as { error?: string }).error ?? 'Request failed');
+  return data as T;
+}
+
+export async function generateFeed(topic: string): Promise<GenerateFeedResponse> {
+  return apiFetch<GenerateFeedResponse>(`${BASE}/feed-generate`, {
     method: 'POST',
-    headers: await getAuthHeaders(),
     body: JSON.stringify({ topic }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Failed to generate');
-  return data;
 }
 
-export async function getFeed(): Promise<{
-  topics: Array<{ id: string; query: string; created_at: string }>;
-  threadsByTopic: Record<string, Array<{ id: string; main_post: string; replies: string[]; created_at: string }>>;
-}> {
-  const res = await fetch(`${EDGE_BASE}/api/feed`, { headers: await getAuthHeaders() });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Failed to load feed');
-  return data;
+export async function getFeed(): Promise<GetFeedResponse> {
+  return apiFetch<GetFeedResponse>(`${EDGE_BASE}/api/feed`);
 }
 
-export async function getThread(threadId: string): Promise<{
-  thread: { id: string; topic_id: string; main_post: string; replies: string[]; created_at: string };
-  followUps: Array<{ id: string; user_question: string; ai_answer: string; created_at: string }>;
-}> {
-  const res = await fetch(`${EDGE_BASE}/api/thread-get?threadId=${encodeURIComponent(threadId)}`, {
-    headers: await getAuthHeaders(),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Failed to load thread');
-  return data;
+export async function getThread(threadId: string): Promise<ThreadWithFollowUps> {
+  return apiFetch<ThreadWithFollowUps>(
+    `${EDGE_BASE}/api/thread-get?threadId=${encodeURIComponent(threadId)}`
+  );
 }
 
 export async function askThread(
   threadId: string,
   question: string,
   replyContext?: string
-): Promise<{
-  answer: string;
-  followUp: { id: string; user_question: string; ai_answer: string; created_at: string };
-}> {
-  const res = await fetch(`${BASE}/thread-ask`, {
+): Promise<AskThreadResponse> {
+  return apiFetch<AskThreadResponse>(`${BASE}/thread-ask`, {
     method: 'POST',
-    headers: await getAuthHeaders(),
     body: JSON.stringify({ threadId, question, replyContext: replyContext || undefined }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Failed to get answer');
-  return data;
 }
 
 export async function getInterests(): Promise<{ tags: string[] }> {
-  const res = await fetch(`${EDGE_BASE}/api/interests`, { headers: await getAuthHeaders() });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Failed to load interests');
-  return data;
+  return apiFetch<{ tags: string[] }>(`${EDGE_BASE}/api/interests`);
 }
 
 export async function setInterests(tags: string[]): Promise<void> {
-  const res = await fetch(`${EDGE_BASE}/api/interests`, {
+  await apiFetch<void>(`${EDGE_BASE}/api/interests`, {
     method: 'POST',
-    headers: await getAuthHeaders(),
     body: JSON.stringify({ tags }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Failed to save interests');
 }
 
 export async function getHomeTweets(): Promise<{ tweets: string[] }> {
-  const res = await fetch(`${BASE}/home-tweets`, {
+  return apiFetch<{ tweets: string[] }>(`${BASE}/home-tweets`, {
     method: 'POST',
-    headers: await getAuthHeaders(),
     body: JSON.stringify({}),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Failed to load tweets');
-  return data;
 }
 
 export async function createThreadFromTweet(tweet: string): Promise<{ threadId: string }> {
-  const res = await fetch(`${BASE}/thread-from-tweet`, {
+  return apiFetch<{ threadId: string }>(`${BASE}/thread-from-tweet`, {
     method: 'POST',
-    headers: await getAuthHeaders(),
     body: JSON.stringify({ tweet }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Failed to create thread');
-  return data;
 }
 
-export async function getHomeThreads(): Promise<{
-  threads: Array<{ id: string; main_post: string; replies: string[]; created_at: string }>;
-}> {
-  const res = await fetch(`${EDGE_BASE}/api/home-threads`, { headers: await getAuthHeaders() });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Failed to load home threads');
-  return data;
+export async function getHomeThreads(): Promise<{ threads: ThreadSummary[] }> {
+  return apiFetch<{ threads: ThreadSummary[] }>(`${EDGE_BASE}/api/home-threads`);
 }

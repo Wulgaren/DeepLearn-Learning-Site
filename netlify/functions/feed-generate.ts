@@ -1,33 +1,8 @@
-import type { HandlerEvent, HandlerResponse } from '@netlify/functions';
+import type { HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { jsonrepair } from 'jsonrepair';
 import Groq from 'groq-sdk';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
-function jsonResponse(body: unknown, status = 200): HandlerResponse {
-  return {
-    statusCode: status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    body: JSON.stringify(body),
-  };
-}
-
-function getUserId(event: HandlerEvent): string | null {
-  const auth = event.headers['authorization'] || event.headers['Authorization'];
-  if (!auth?.startsWith('Bearer ')) return null;
-  const token = auth.slice(7);
-  try {
-    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-    return payload.sub ?? null;
-  } catch {
-    return null;
-  }
-}
+import { corsHeaders, getUserId, jsonResponse } from './_shared';
 
 const THREADS_COUNT = 6;
 const REPLIES_PER_THREAD = 5;

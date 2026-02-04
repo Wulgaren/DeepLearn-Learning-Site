@@ -2,13 +2,17 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getThread, askThread } from '../lib/api';
+import { getErrorMessage } from '../lib/errors';
+import { useCopyLink } from '../hooks/useCopyLink';
+import CopyLinkToast from '../components/CopyLinkToast';
+import PostRow from '../components/PostRow';
 
 export default function Thread() {
   const { threadId } = useParams<{ threadId: string }>();
   const [question, setQuestion] = useState('');
   /** null = form under main post; number = form under that reply index */
   const [replyFormAnchor, setReplyFormAnchor] = useState<number | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
+  const { copyLink, linkCopied } = useCopyLink();
   const queryClient = useQueryClient();
 
   const { data, isLoading: loading, error: threadError } = useQuery({
@@ -28,7 +32,9 @@ export default function Thread() {
     },
   });
 
-  const error = threadError instanceof Error ? threadError.message : threadError ? String(threadError) : askMutation.error instanceof Error ? askMutation.error.message : askMutation.error ? String(askMutation.error) : undefined;
+  const error =
+    (threadError != null ? getErrorMessage(threadError) : undefined) ??
+    (askMutation.error != null ? getErrorMessage(askMutation.error) : undefined);
 
   function handleAsk(e: React.FormEvent) {
     e.preventDefault();
@@ -38,16 +44,9 @@ export default function Thread() {
     askMutation.mutate({ q, replyContext: context });
   }
 
-  function getThreadUrl(id: string) {
-    return `${window.location.origin}/thread/${id}`;
-  }
-
   function handleShare() {
     if (!threadId) return;
-    void navigator.clipboard.writeText(getThreadUrl(threadId)).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    });
+    void copyLink(threadId);
   }
 
   if (loading) return <p className="py-4 text-zinc-500">Loading thread…</p>;
@@ -59,11 +58,7 @@ export default function Thread() {
 
   return (
     <div className="pb-12">
-      {linkCopied && (
-        <p className="fixed bottom-6 left-1/2 -translate-x-1/2 z-10 bg-zinc-800 text-zinc-100 text-sm px-4 py-2 rounded-lg shadow-lg border border-zinc-700">
-          Link copied!
-        </p>
-      )}
+      <CopyLinkToast show={linkCopied} />
       <div className="sticky top-[52px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80">
         <div className="px-1 py-2 flex items-center gap-3">
           <Link to="/" className="text-zinc-300 no-underline hover:text-white">
@@ -79,23 +74,16 @@ export default function Thread() {
       </div>
 
       {/* Main post */}
-      <article className="px-1 py-4 border-b border-zinc-800/80">
-        <div className="flex gap-3">
-          <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-300 shrink-0">
-            AI
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-semibold">Thread</span>
-              <span className="text-zinc-500">•</span>
-              <span className="text-zinc-500 text-xs">
-                {replies.length} replies
-              </span>
-            </div>
-            <p className="m-0 mt-2 text-[1.05rem] leading-relaxed whitespace-pre-wrap break-words text-zinc-100">
-              {thread.main_post}
-            </p>
-            <div className="mt-4 flex items-center gap-6 text-xs text-zinc-500">
+      <article className="border-b border-zinc-800/80">
+        <PostRow
+          as="div"
+          label="Thread"
+          meta={`${replies.length} replies`}
+          body={thread.main_post}
+          bodyClassName="mt-2 text-[1.05rem] leading-relaxed whitespace-pre-wrap break-words text-zinc-100"
+          actionClassName="mt-4 flex items-center gap-6 text-xs text-zinc-500"
+          actions={
+            <>
               <button
                 type="button"
                 onClick={() => setReplyFormAnchor(null)}
@@ -110,9 +98,9 @@ export default function Thread() {
               >
                 Share
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        />
       </article>
 
       {/* Ask box – under main post when anchor is null */}
@@ -149,21 +137,16 @@ export default function Thread() {
       {/* Replies */}
       <section className="divide-y divide-zinc-800/80">
         {replies.map((reply, i) => (
-          <article key={i} className="px-1 py-4 hover:bg-zinc-950/60 transition">
-            <div className="flex gap-3">
-              <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-300 shrink-0">
-                AI
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="font-semibold text-zinc-200">Reply</span>
-                  <span className="text-zinc-500">•</span>
-                  <span className="text-zinc-500 text-xs">#{i + 1}</span>
-                </div>
-                <p className="m-0 mt-1 text-sm leading-relaxed whitespace-pre-wrap break-words text-zinc-200">
-                  {reply}
-                </p>
-                <div className="mt-3 flex items-center gap-6 text-xs text-zinc-500">
+          <article key={i} className="hover:bg-zinc-950/60 transition">
+            <PostRow
+              as="div"
+              label="Reply"
+              meta={`#${i + 1}`}
+              body={reply}
+              bodyClassName="mt-1 text-sm leading-relaxed whitespace-pre-wrap break-words text-zinc-200"
+              actionClassName="mt-3 flex items-center gap-6 text-xs text-zinc-500"
+              actions={
+                <>
                   <button
                     type="button"
                     onClick={() => setReplyFormAnchor(i)}
@@ -178,9 +161,9 @@ export default function Thread() {
                   >
                     Share
                   </button>
-                </div>
-              </div>
-            </div>
+                </>
+              }
+            />
             {/* Ask box – under this subtweet when anchor is i */}
             {replyFormAnchor === i && (
               <div className="mt-3 ml-12">

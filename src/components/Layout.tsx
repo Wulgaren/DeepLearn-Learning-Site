@@ -3,6 +3,8 @@ import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
+const navInactiveClass = 'text-zinc-300 hover:text-zinc-100';
+
 export default function Layout() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -11,6 +13,8 @@ export default function Layout() {
   const isTopics = location.pathname.startsWith('/topics');
   const isThread = location.pathname.startsWith('/thread/');
   const headerTitle = isThread ? 'Post' : isTopics ? 'My topics' : 'Home';
+  const homeActive = !isTopics && !isThread;
+  const topicsActive = isTopics;
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,13 +44,13 @@ export default function Layout() {
               <nav className="mt-4 flex flex-col gap-1">
                 <Link
                   to="/"
-                  className={`px-3 py-2 rounded-full text-[0.95rem] font-semibold hover:bg-zinc-900 ${!isTopics && !isThread ? '' : 'text-zinc-300 hover:text-zinc-100'}`}
+                  className={`px-3 py-2 rounded-full text-[0.95rem] font-semibold hover:bg-zinc-900 ${homeActive ? '' : navInactiveClass}`}
                 >
                   Home
                 </Link>
                 <Link
                   to="/topics"
-                  className={`px-3 py-2 rounded-full text-[0.95rem] font-semibold hover:bg-zinc-900 ${isTopics ? '' : 'text-zinc-300 hover:text-zinc-100'}`}
+                  className={`px-3 py-2 rounded-full text-[0.95rem] font-semibold hover:bg-zinc-900 ${topicsActive ? '' : navInactiveClass}`}
                 >
                   My topics
                 </Link>

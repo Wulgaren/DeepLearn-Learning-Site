@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getFeed, generateFeed } from '../lib/api';
+import { getErrorMessage } from '../lib/errors';
+import { useCopyLink } from '../hooks/useCopyLink';
+import CopyLinkToast from '../components/CopyLinkToast';
+import PostRow from '../components/PostRow';
 import type { FeedTopic, ThreadSummary } from '../types';
 
 export default function Feed() {
   const [topicInput, setTopicInput] = useState('');
-  const [linkCopied, setLinkCopied] = useState(false);
+  const { copyLink, linkCopied } = useCopyLink();
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
@@ -41,20 +45,12 @@ export default function Feed() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when location.state has topic
   }, [location.state, location.pathname, navigate]);
 
-  const error = feedError instanceof Error ? feedError.message : feedError ? String(feedError) : undefined;
-
-  function getThreadUrl(id: string) {
-    return `${window.location.origin}/thread/${id}`;
-  }
+  const error = feedError != null ? getErrorMessage(feedError) : undefined;
 
   function handleShare(e: React.MouseEvent, threadId: string) {
     e.preventDefault();
     e.stopPropagation();
-    const url = getThreadUrl(threadId);
-    void navigator.clipboard.writeText(url).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    });
+    void copyLink(threadId);
   }
 
   function handleGenerate(e: React.FormEvent) {
@@ -66,11 +62,7 @@ export default function Feed() {
 
   return (
     <div className="pb-10">
-      {linkCopied && (
-        <p className="fixed bottom-6 left-1/2 -translate-x-1/2 z-10 bg-zinc-800 text-zinc-100 text-sm px-4 py-2 rounded-lg shadow-lg border border-zinc-700">
-          Link copied!
-        </p>
-      )}
+      <CopyLinkToast show={linkCopied} />
       {/* Composer */}
       <section className="py-4 border-b border-zinc-800/80">
         <form onSubmit={handleGenerate}>
@@ -101,7 +93,7 @@ export default function Feed() {
               </div>
               {(error || generateMutation.error) && (
                 <p className="mt-3 text-red-400 text-sm">
-                  {error ?? (generateMutation.error instanceof Error ? generateMutation.error.message : String(generateMutation.error))}
+                  {error ?? getErrorMessage(generateMutation.error)}
                 </p>
               )}
             </div>
@@ -139,37 +131,23 @@ export default function Feed() {
                   <ul className="list-none p-0 m-0">
                     {(threadsByTopic[topic.id] ?? []).map((thread: ThreadSummary) => (
                       <li key={thread.id} className="border-b border-zinc-800/80 last:border-b-0">
-                        <Link
+                        <PostRow
+                          as="link"
                           to={`/thread/${thread.id}`}
-                          className="block no-underline text-inherit px-1 py-4 hover:bg-zinc-950/60 transition"
-                        >
-                          <div className="flex gap-3">
-                            <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-300 shrink-0">
-                              AI
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 text-sm">
-                                <span className="font-semibold text-zinc-100">Thread</span>
-                                <span className="text-zinc-500">•</span>
-                                <span className="text-zinc-500 text-xs">
-                                  {Array.isArray(thread.replies) ? thread.replies.length : 0} replies
-                                </span>
-                              </div>
-                              <p className="m-0 mt-1 text-sm leading-relaxed text-zinc-200 line-clamp-3">
-                                {thread.main_post}
-                              </p>
-                              <div className="mt-2 flex items-center gap-4 text-xs text-zinc-500">
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleShare(e, thread.id)}
-                                  className="hover:text-zinc-300"
-                                >
-                                  Share
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
+                          label="Thread"
+                          meta={`${Array.isArray(thread.replies) ? thread.replies.length : 0} replies`}
+                          body={thread.main_post}
+                          lineClamp={3}
+                          actions={
+                            <button
+                              type="button"
+                              onClick={(e) => handleShare(e, thread.id)}
+                              className="hover:text-zinc-300"
+                            >
+                              Share
+                            </button>
+                          }
+                        />
                       </li>
                     ))}
                   </ul>

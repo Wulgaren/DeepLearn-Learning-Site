@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInterests, setInterests, getHomeTweets, createThreadFromTweet, getHomeThreads } from '../lib/api';
-
-type HomeThread = { id: string; main_post: string; replies: string[]; created_at: string };
+import { getErrorMessage } from '../lib/errors';
+import { useCopyLink } from '../hooks/useCopyLink';
+import CopyLinkToast from '../components/CopyLinkToast';
+import PostRow from '../components/PostRow';
+import type { ThreadSummary } from '../types';
 
 export default function Home() {
   const [tagInput, setTagInput] = useState('');
   const [creatingTweet, setCreatingTweet] = useState<string | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
+  const { copyLink, linkCopied } = useCopyLink();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -51,7 +54,7 @@ export default function Home() {
   });
 
   const err = interestsError ?? tweetsError ?? setInterestsMutation.error ?? createThreadMutation.error;
-  const error = err instanceof Error ? err.message : err ? String(err) : undefined;
+  const error = err != null ? getErrorMessage(err) : undefined;
 
   function handleAddTag(e: React.FormEvent) {
     e.preventDefault();
@@ -89,27 +92,15 @@ export default function Home() {
     navigate(`/thread/${threadId}`);
   }
 
-  function getThreadUrl(id: string) {
-    return `${window.location.origin}/thread/${id}`;
-  }
-
   function handleShare(e: React.MouseEvent, threadId: string) {
     e.preventDefault();
     e.stopPropagation();
-    const url = getThreadUrl(threadId);
-    void navigator.clipboard.writeText(url).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    });
+    void copyLink(threadId);
   }
 
   return (
     <div className="pb-10">
-      {linkCopied && (
-        <p className="fixed bottom-6 left-1/2 -translate-x-1/2 z-10 bg-zinc-800 text-zinc-100 text-sm px-4 py-2 rounded-lg shadow-lg border border-zinc-700">
-          Link copied!
-        </p>
-      )}
+      <CopyLinkToast show={linkCopied} />
       {/* Interests */}
       <section className="py-4 border-b border-zinc-800/80">
         <h2 className="text-sm font-semibold text-zinc-400 mb-3">Your interests</h2>
@@ -174,31 +165,19 @@ export default function Home() {
         ) : (
           <div className="divide-y divide-zinc-800/80">
             {tweets.map((tweet, i) => (
-              <button
+              <PostRow
                 key={`${i}-${tweet.slice(0, 40)}`}
-                type="button"
+                as="button"
                 onClick={() => handleTweetClick(tweet)}
                 disabled={!!creatingTweet}
-                className="w-full text-left px-1 py-4 hover:bg-zinc-950/60 transition border-b border-zinc-800/80 last:border-b-0 disabled:opacity-70 cursor-pointer"
-                style={{ cursor: creatingTweet ? undefined : 'pointer' }}
-              >
-                <div className="flex gap-3">
-                  <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-300 shrink-0">
-                    AI
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-semibold text-zinc-100">For you</span>
-                    </div>
-                    <p className="m-0 mt-1 text-sm leading-relaxed text-zinc-200">
-                      {tweet}
-                    </p>
-                    {creatingTweet === tweet && (
-                      <p className="m-0 mt-2 text-xs text-zinc-500">Creating…</p>
-                    )}
-                  </div>
-                </div>
-              </button>
+                label="For you"
+                body={tweet}
+                extra={
+                  creatingTweet === tweet ? (
+                    <p className="m-0 mt-2 text-xs text-zinc-500">Creating…</p>
+                  ) : undefined
+                }
+              />
             ))}
           </div>
         )}
@@ -213,41 +192,25 @@ export default function Home() {
           <p className="text-zinc-500 text-sm">Threads you open from the suggestions above will appear here.</p>
         ) : (
           <div className="divide-y divide-zinc-800/80">
-            {homeThreads.map((thread: HomeThread) => (
-              <button
+            {homeThreads.map((thread: ThreadSummary) => (
+              <PostRow
                 key={thread.id}
-                type="button"
+                as="button"
                 onClick={() => handleOpenThread(thread.id)}
-                className="w-full text-left px-1 py-4 hover:bg-zinc-950/60 transition border-b border-zinc-800/80 last:border-b-0 cursor-pointer"
-                style={{ cursor: 'pointer' }}
-              >
-                <div className="flex gap-3">
-                  <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-300 shrink-0">
-                    AI
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-semibold text-zinc-100">Thread</span>
-                      <span className="text-zinc-500">•</span>
-                      <span className="text-zinc-500 text-xs">
-                        {Array.isArray(thread.replies) ? thread.replies.length : 0} replies
-                      </span>
-                    </div>
-                    <p className="m-0 mt-1 text-sm leading-relaxed text-zinc-200 line-clamp-2">
-                      {thread.main_post}
-                    </p>
-                    <div className="mt-2 flex items-center gap-4 text-xs text-zinc-500">
-                      <button
-                        type="button"
-                        onClick={(e) => handleShare(e, thread.id)}
-                        className="hover:text-zinc-300"
-                      >
-                        Share
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </button>
+                label="Thread"
+                meta={`${Array.isArray(thread.replies) ? thread.replies.length : 0} replies`}
+                body={thread.main_post}
+                lineClamp={2}
+                actions={
+                  <button
+                    type="button"
+                    onClick={(e) => handleShare(e, thread.id)}
+                    className="hover:text-zinc-300"
+                  >
+                    Share
+                  </button>
+                }
+              />
             ))}
           </div>
         )}
