@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInterests, setInterests, getHomeTweets, createThreadFromTweet, getHomeThreads } from '../lib/api';
@@ -8,7 +8,6 @@ type HomeThread = { id: string; main_post: string; replies: string[]; created_at
 export default function Home() {
   const [tagInput, setTagInput] = useState('');
   const [creatingTweet, setCreatingTweet] = useState<string | null>(null);
-  const [accumulatedTweets, setAccumulatedTweets] = useState<string[]>([]);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -29,23 +28,11 @@ export default function Home() {
     queryFn: getHomeTweets,
     enabled: tags.length > 0,
   });
-
-  useEffect(() => {
-    if (tweetsData?.tweets?.length) {
-      // Merge query result into accumulated list; intentional setState in effect
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setAccumulatedTweets((prev) => {
-        const next = new Set(prev);
-        tweetsData.tweets.forEach((t) => next.add(t));
-        return Array.from(next);
-      });
-    }
-  }, [tweetsData]);
+  const tweets = tweetsData?.tweets ?? [];
 
   const setInterestsMutation = useMutation({
     mutationFn: setInterests,
     onSuccess: () => {
-      setAccumulatedTweets([]);
       queryClient.invalidateQueries({ queryKey: ['interests'] });
       queryClient.invalidateQueries({ queryKey: ['homeTweets'] });
     },
@@ -160,13 +147,13 @@ export default function Home() {
           <p className="text-zinc-500 text-sm py-6">
             Add interests above, then open Home to see personalized tweet ideas.
           </p>
-        ) : loadingTweets && accumulatedTweets.length === 0 ? (
+        ) : loadingTweets && tweets.length === 0 ? (
           <p className="text-zinc-500 text-sm py-6">Loading tweet ideas…</p>
-        ) : accumulatedTweets.length === 0 ? (
+        ) : tweets.length === 0 ? (
           <p className="text-zinc-500 text-sm py-6">No tweet ideas right now. Try adding more interests.</p>
         ) : (
           <div className="divide-y divide-zinc-800/80">
-            {accumulatedTweets.map((tweet, i) => (
+            {tweets.map((tweet, i) => (
               <button
                 key={`${i}-${tweet.slice(0, 40)}`}
                 type="button"

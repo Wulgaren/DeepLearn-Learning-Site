@@ -38,11 +38,18 @@ create table if not exists public.user_interests (
   tags text[] not null default '{}'
 );
 
+-- Stored Home tweet suggestions (persisted, sent to AI as "already covered")
+create table if not exists public.user_home_suggestions (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  suggestions text[] not null default '{}'
+);
+
 -- RLS: users can only access their own data
 alter table public.topics enable row level security;
 alter table public.threads enable row level security;
 alter table public.follow_ups enable row level security;
 alter table public.user_interests enable row level security;
+alter table public.user_home_suggestions enable row level security;
 
 -- User interests: own row only (select + insert/update for upsert)
 create policy "Users can view own interests"
@@ -53,6 +60,18 @@ create policy "Users can insert own interests"
   with check (auth.uid() = user_id);
 create policy "Users can update own interests"
   on public.user_interests for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- User home suggestions: own row only (for server-side use; service role in functions)
+create policy "Users can view own home suggestions"
+  on public.user_home_suggestions for select
+  using (auth.uid() = user_id);
+create policy "Users can insert own home suggestions"
+  on public.user_home_suggestions for insert
+  with check (auth.uid() = user_id);
+create policy "Users can update own home suggestions"
+  on public.user_home_suggestions for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 

@@ -83,6 +83,11 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Failed to save interests" }, 500);
   }
 
+  await supabase.from("user_home_suggestions").upsert(
+    { user_id: userId, suggestions: [] },
+    { onConflict: "user_id" }
+  );
+
   return jsonResponse({ tags });
 }
 

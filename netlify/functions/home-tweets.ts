@@ -30,6 +30,7 @@ function getUserId(event: HandlerEvent): string | null {
 }
 
 const MAX_TWEETS = 10;
+const MAX_ALREADY_COVERED_IN_PROMPT = 30;
 
 export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   if (event.httpMethod === 'OPTIONS') {
@@ -52,25 +53,63 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const { data: row, error: fetchError } = await supabase
+
+  const { data: interestsRow, error: interestsError } = await supabase
     .from('user_interests')
     .select('tags')
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (fetchError) {
-    console.error('Interests fetch error:', fetchError);
+  if (interestsError) {
+    console.error('Interests fetch error:', interestsError);
     return jsonResponse({ error: 'Failed to load interests' }, 500);
   }
 
-  const interests = Array.isArray(row?.tags) ? row.tags : [];
+  const interests = Array.isArray(interestsRow?.tags) ? interestsRow.tags : [];
   if (interests.length === 0) {
     return jsonResponse({ tweets: [] });
   }
 
+  const { data: homeTopic } = await supabase
+    .from('topics')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('query', 'Home')
+    .limit(1)
+    .maybeSingle();
+
+  const threadMainPosts: string[] = [];
+  if (homeTopic) {
+    const { data: threads } = await supabase
+      .from('threads')
+      .select('main_post')
+      .eq('topic_id', homeTopic.id);
+    if (threads?.length) {
+      threads.forEach((t) => {
+        if (typeof t.main_post === 'string' && t.main_post.trim()) threadMainPosts.push(t.main_post.trim());
+      });
+    }
+  }
+
+  const { data: suggestionsRow } = await supabase
+    .from('user_home_suggestions')
+    .select('suggestions')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const storedSuggestions = Array.isArray(suggestionsRow?.suggestions) ? suggestionsRow.suggestions : [];
+  const alreadyCovered = Array.from(
+    new Set([...threadMainPosts, ...storedSuggestions].filter(Boolean))
+  ).slice(0, MAX_ALREADY_COVERED_IN_PROMPT);
+
   const interestsList = interests.join(', ');
+  const alreadyCoveredBlock =
+    alreadyCovered.length > 0
+      ? `\n\nIMPORTANT: The user has already been shown or has opened threads for these topics. Do NOT suggest anything similar or duplicate. Generate only NEW, different ideas:\n${alreadyCovered.map((s) => `- ${s.replace(/\n/g, ' ').slice(0, 200)}`).join('\n')}\n`
+      : '';
+
   const groq = new Groq({ apiKey: groqApiKey });
-  const prompt = `The user is interested in: ${interestsList}.
+  const prompt = `The user is interested in: ${interestsList}.${alreadyCoveredBlock}
 
 Generate between 5 and ${MAX_TWEETS} short "tweet" ideas that would make this reader want to click and learn more. Each tweet should be an engaging, educational hook (1–2 sentences, under 280 characters). Base ideas on real, factual topics—real concepts, real history, real science, real people or works. Do not invent or speculate. Mix angles: surprising facts, how-to hooks, "why X matters", or intriguing questions.
 
@@ -116,6 +155,18 @@ Rules: Use single quotes inside strings if needed; avoid unescaped double quotes
     }
   }
 
-  const tweets = parseTweets(raw);
-  return jsonResponse({ tweets });
+  const newTweets = parseTweets(raw);
+  const merged = Array.from(new Set([...storedSuggestions, ...newTweets].filter(Boolean)));
+
+  const { error: upsertError } = await supabase.from('user_home_suggestions').upsert(
+    { user_id: userId, suggestions: merged },
+    { onConflict: 'user_id' }
+  );
+
+  if (upsertError) {
+    console.error('Home suggestions upsert error:', upsertError);
+    return jsonResponse({ error: 'Failed to save suggestions' }, 500);
+  }
+
+  return jsonResponse({ tweets: merged });
 }
