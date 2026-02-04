@@ -114,7 +114,7 @@ export default function Thread() {
   return (
     <div className="pb-16">
       <CopyLinkToast show={linkCopied} />
-      <div className="sticky top-[52px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80">
+      <div className="sticky top-[50px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80">
         <div className="px-1 py-2 flex items-center gap-3">
           <Link to="/" className="text-zinc-300 no-underline hover:text-white">
             ←
@@ -176,7 +176,7 @@ export default function Thread() {
                 maxLength={2000}
                 className="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2 disabled:opacity-50"
               />
-              <div className="mt-2 flex items-center justify-end">
+              <div className="mt-2 mb-2 flex items-center justify-end">
                 <button
                   type="submit"
                   disabled={askMutation.isPending || !question.trim()}
