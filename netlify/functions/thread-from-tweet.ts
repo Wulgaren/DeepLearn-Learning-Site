@@ -64,15 +64,28 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  const { data: topicRow, error: topicError } = await supabase
+  let topicRow: { id: string } | null = null;
+  const { data: existing } = await supabase
     .from('topics')
-    .insert({ user_id: userId, query: 'Home' })
     .select('id')
-    .single();
+    .eq('user_id', userId)
+    .eq('query', 'Home')
+    .limit(1)
+    .maybeSingle();
 
-  if (topicError || !topicRow) {
-    console.error('Topic insert error:', topicError);
-    return jsonResponse({ error: 'Failed to create topic' }, 500);
+  if (existing) {
+    topicRow = existing;
+  } else {
+    const { data: inserted, error: topicError } = await supabase
+      .from('topics')
+      .insert({ user_id: userId, query: 'Home' })
+      .select('id')
+      .single();
+    if (topicError || !inserted) {
+      console.error('Topic insert error:', topicError);
+      return jsonResponse({ error: 'Failed to create topic' }, 500);
+    }
+    topicRow = inserted;
   }
 
   const { data: threadRow, error: threadError } = await supabase
@@ -87,7 +100,7 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   }
 
   const groq = new Groq({ apiKey: groqApiKey });
-  const prompt = `You are an expert educator. This is a single "tweet" (main post) that a reader clicked on. Generate exactly ${REPLIES_COUNT} reply posts that expand on it in a thread. Be substantive and informative. Include concrete examples where they fit. Each reply 1–4 sentences, up to ~400 characters. Conversational, flowing sentences—no bullet lists.
+  const prompt = `You are an expert educator. This is a single "tweet" (main post) that a reader clicked on. Generate exactly ${REPLIES_COUNT} reply posts that expand on it in a thread. Be factual and accurate: only state true, verifiable information. Use real people, real events, real studies—no invented examples. If something is uncertain, say so. Each reply 1–4 sentences, up to ~400 characters. Conversational, flowing sentences—no bullet lists.
 
 Main post: "${tweet.replace(/"/g, "'")}"
 
@@ -99,7 +112,7 @@ Rules: One JSON object only. No code fences. No newlines inside strings. Use sin
   let raw: string;
   try {
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'openai/gpt-oss-120b',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
       max_tokens: 2048,

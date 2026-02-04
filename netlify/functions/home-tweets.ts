@@ -72,7 +72,7 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   const groq = new Groq({ apiKey: groqApiKey });
   const prompt = `The user is interested in: ${interestsList}.
 
-Generate between 5 and ${MAX_TWEETS} short "tweet" ideas that would make this reader want to click and learn more. Each tweet should be an engaging, educational hook (1–2 sentences, under 280 characters). Mix different angles: surprising facts, how-to hooks, "why X matters", or intriguing questions. Pick topics you think would be interesting given their interests.
+Generate between 5 and ${MAX_TWEETS} short "tweet" ideas that would make this reader want to click and learn more. Each tweet should be an engaging, educational hook (1–2 sentences, under 280 characters). Base ideas on real, factual topics—real concepts, real history, real science, real people or works. Do not invent or speculate. Mix angles: surprising facts, how-to hooks, "why X matters", or intriguing questions.
 
 Return ONLY a JSON array of strings, nothing else. No markdown, no code fences, no explanation. Example format:
 ["First tweet text here.","Second tweet here.",...]
@@ -82,7 +82,7 @@ Rules: Use single quotes inside strings if needed; avoid unescaped double quotes
   let raw: string;
   try {
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'openai/gpt-oss-120b',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.8,
       max_tokens: 2048,

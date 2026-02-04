@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getInterests, setInterests, getHomeTweets, createThreadFromTweet } from '../lib/api';
+import { getInterests, setInterests, getHomeTweets, createThreadFromTweet, getHomeThreads } from '../lib/api';
+
+type HomeThread = { id: string; main_post: string; replies: string[]; created_at: string };
 
 export default function Home() {
   const [tags, setTags] = useState<string[]>([]);
@@ -8,6 +10,8 @@ export default function Home() {
   const [loadingInterests, setLoadingInterests] = useState(true);
   const [tweets, setTweets] = useState<string[]>([]);
   const [loadingTweets, setLoadingTweets] = useState(false);
+  const [homeThreads, setHomeThreads] = useState<HomeThread[]>([]);
+  const [loadingHomeThreads, setLoadingHomeThreads] = useState(true);
   const [error, setError] = useState('');
   const [creatingTweet, setCreatingTweet] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -28,6 +32,22 @@ export default function Home() {
   useEffect(() => {
     loadInterests();
   }, [loadInterests]);
+
+  const loadHomeThreads = useCallback(async () => {
+    setLoadingHomeThreads(true);
+    try {
+      const data = await getHomeThreads();
+      setHomeThreads(data.threads);
+    } catch {
+      setHomeThreads([]);
+    } finally {
+      setLoadingHomeThreads(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHomeThreads();
+  }, [loadHomeThreads]);
 
   useEffect(() => {
     if (tags.length === 0) {
@@ -102,6 +122,10 @@ export default function Home() {
     }
   }
 
+  function handleOpenThread(threadId: string) {
+    navigate(`/thread/${threadId}`);
+  }
+
   return (
     <div className="pb-10">
       {/* Interests */}
@@ -173,7 +197,7 @@ export default function Home() {
                 type="button"
                 onClick={() => handleTweetClick(tweet)}
                 disabled={!!creatingTweet}
-                className="w-full text-left px-1 py-4 hover:bg-zinc-950/60 transition border-b border-zinc-800/80 last:border-b-0 disabled:opacity-70"
+                className="w-full text-left px-1 py-4 hover:bg-zinc-950/60 transition border-b border-zinc-800/80 last:border-b-0 disabled:opacity-70 cursor-pointer"
               >
                 <div className="flex gap-3">
                   <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-300 shrink-0">
@@ -190,6 +214,45 @@ export default function Home() {
                       <span>Click to open thread</span>
                       {creatingTweet === tweet && <span>Creating…</span>}
                     </div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Your threads (saved from Home) */}
+      <section className="pt-6 border-t border-zinc-800/80">
+        <h2 className="text-sm font-semibold text-zinc-400 mb-3">Your threads</h2>
+        {loadingHomeThreads ? (
+          <p className="text-zinc-500 text-sm">Loading…</p>
+        ) : homeThreads.length === 0 ? (
+          <p className="text-zinc-500 text-sm">Threads you open from the suggestions above will appear here.</p>
+        ) : (
+          <div className="divide-y divide-zinc-800/80">
+            {homeThreads.map((thread) => (
+              <button
+                key={thread.id}
+                type="button"
+                onClick={() => handleOpenThread(thread.id)}
+                className="w-full text-left px-1 py-4 hover:bg-zinc-950/60 transition border-b border-zinc-800/80 last:border-b-0 cursor-pointer"
+              >
+                <div className="flex gap-3">
+                  <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-300 shrink-0">
+                    AI
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-semibold text-zinc-100">Thread</span>
+                      <span className="text-zinc-500">•</span>
+                      <span className="text-zinc-500 text-xs">
+                        {Array.isArray(thread.replies) ? thread.replies.length : 0} replies
+                      </span>
+                    </div>
+                    <p className="m-0 mt-1 text-sm leading-relaxed text-zinc-200 line-clamp-2">
+                      {thread.main_post}
+                    </p>
                   </div>
                 </div>
               </button>

@@ -69,8 +69,9 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   const prompt = `You are an expert educator. Generate exactly ${THREADS_COUNT} informative threads about the topic: "${topic}".
 
 Each thread has one main post (a clear hook or key idea, 1–2 sentences) and ${REPLIES_PER_THREAD} reply posts that expand on it. Requirements:
+- Be factual and accurate. Only state information that is true and verifiable. Use real people, real events, real studies, real works—no invented examples or speculation. If something is uncertain, say so.
 - Be substantive and informative. Explain concepts clearly; avoid one-line definitions or vague bullets.
-- Include real-life examples: named people, works, events, or concrete cases where they fit (e.g. artists, inventions, historical moments, studies).
+- Include real-life examples where they fit: actual names, events, inventions, historical moments, or published research.
 - Each main post or reply can be 1–4 sentences (up to ~400 characters each). Prioritize clarity and usefulness over brevity.
 - Keep a conversational but knowledgeable tone. No bullet lists—write in flowing sentences.
 
@@ -82,7 +83,7 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
   let raw: string;
   try {
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'openai/gpt-oss-120b',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
       max_tokens: 8192,

@@ -98,3 +98,12 @@ export async function createThreadFromTweet(tweet: string): Promise<{ threadId: 
   if (!res.ok) throw new Error(data.error ?? 'Failed to create thread');
   return data;
 }
+
+export async function getHomeThreads(): Promise<{
+  threads: Array<{ id: string; main_post: string; replies: string[]; created_at: string }>;
+}> {
+  const res = await fetch(`${EDGE_BASE}/api/home-threads`, { headers: await getAuthHeaders() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Failed to load home threads');
+  return data;
+}

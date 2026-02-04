@@ -24,7 +24,7 @@ export default function Layout() {
             <div className="flex h-full flex-col">
               <Link to="/" className="inline-flex items-center gap-2 px-3 py-2 rounded-full hover:bg-zinc-900 text-inherit">
                 <img src="/learning-icon.svg" alt="" className="h-8 w-8 text-zinc-100 [filter:invert(1)]" />
-                <span className="text-xl font-bold tracking-tight">Learning</span>
+                <span className="text-xl font-bold tracking-tight">DeepLearn</span>
               </Link>
 
               <nav className="mt-4 flex flex-col gap-1">

@@ -97,12 +97,12 @@ ${context}
 
 User asks: ${question}
 
-Reply in 1–4 clear sentences. Be helpful and conversational. Include a concrete example or real-life case when it would make the answer clearer. No JSON, no quotes—just the reply text.`;
+Reply in 1–4 clear sentences. Be helpful and conversational. Only state factual, verifiable information—use real examples, real names, real studies. Do not invent or speculate; if unsure, say so. No JSON, no quotes—just the reply text.`;
 
   let answer: string;
   try {
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'openai/gpt-oss-120b',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.6,
       max_tokens: 400,
