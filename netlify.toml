@@ -6,3 +6,9 @@
 
 [build.environment]
   NODE_VERSION = "20"
+
+# SPA: serve index.html for all routes so client-side router can handle /thread/:id etc.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

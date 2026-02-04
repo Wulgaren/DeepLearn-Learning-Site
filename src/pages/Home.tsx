@@ -88,6 +88,19 @@ export default function Home() {
     navigate(`/thread/${threadId}`);
   }
 
+  function getThreadUrl(id: string) {
+    return `${window.location.origin}/thread/${id}`;
+  }
+
+  function handleShare(e: React.MouseEvent, threadId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = getThreadUrl(threadId);
+    void navigator.clipboard.writeText(url).then(() => {
+      // Optional: toast or brief "Copied!" feedback
+    });
+  }
+
   return (
     <div className="pb-10">
       {/* Interests */}
@@ -216,6 +229,15 @@ export default function Home() {
                     <p className="m-0 mt-1 text-sm leading-relaxed text-zinc-200 line-clamp-2">
                       {thread.main_post}
                     </p>
+                    <div className="mt-2 flex items-center gap-4 text-xs text-zinc-500">
+                      <button
+                        type="button"
+                        onClick={(e) => handleShare(e, thread.id)}
+                        className="hover:text-zinc-300"
+                      >
+                        Share
+                      </button>
+                    </div>
                   </div>
                 </div>
               </button>

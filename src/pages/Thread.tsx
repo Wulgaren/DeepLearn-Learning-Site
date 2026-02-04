@@ -6,6 +6,7 @@ import { getThread, askThread } from '../lib/api';
 export default function Thread() {
   const { threadId } = useParams<{ threadId: string }>();
   const [question, setQuestion] = useState('');
+  const [showReplyForm, setShowReplyForm] = useState(false);
   const queryClient = useQueryClient();
 
   const { data, isLoading: loading, error: threadError } = useQuery({
@@ -31,6 +32,15 @@ export default function Thread() {
     const q = question.trim();
     if (!threadId || !q || askMutation.isPending) return;
     askMutation.mutate({ q });
+  }
+
+  function getThreadUrl(id: string) {
+    return `${window.location.origin}/thread/${id}`;
+  }
+
+  function handleShare() {
+    if (!threadId) return;
+    void navigator.clipboard.writeText(getThreadUrl(threadId));
   }
 
   if (loading) return <p className="py-4 text-zinc-500">Loading thread…</p>;
@@ -74,43 +84,55 @@ export default function Thread() {
               {thread.main_post}
             </p>
             <div className="mt-4 flex items-center gap-6 text-xs text-zinc-500">
-              <span>Reply</span>
-              <span>Repost</span>
-              <span>Like</span>
-              <span>Share</span>
+              <button
+                type="button"
+                onClick={() => setShowReplyForm((v) => !v)}
+                className="hover:text-zinc-300 bg-transparent border-0 p-0 cursor-pointer"
+              >
+                Reply
+              </button>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="hover:text-zinc-300 bg-transparent border-0 p-0 cursor-pointer"
+              >
+                Share
+              </button>
             </div>
           </div>
         </div>
       </article>
 
-      {/* Ask box */}
-      <section className="px-1 py-4 border-b border-zinc-800/80">
-        <form onSubmit={handleAsk} className="flex gap-3">
-          <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-400 shrink-0">
-            You
-          </div>
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Ask a follow-up question…"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              disabled={askMutation.isPending}
-              className="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2 disabled:opacity-50"
-            />
-            <div className="mt-2 flex items-center justify-end">
-              <button
-                type="submit"
-                disabled={askMutation.isPending || !question.trim()}
-                className="px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white disabled:opacity-50 disabled:hover:bg-zinc-100"
-              >
-                {askMutation.isPending ? 'Asking…' : 'Ask'}
-              </button>
+      {/* Ask box – only when Reply was clicked */}
+      {showReplyForm && (
+        <section className="px-1 py-4 border-b border-zinc-800/80">
+          <form onSubmit={handleAsk} className="flex gap-3">
+            <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-400 shrink-0">
+              You
             </div>
-            {error && <p className="mt-2 text-red-400 text-sm">{error}</p>}
-          </div>
-        </form>
-      </section>
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Ask a follow-up question…"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                disabled={askMutation.isPending}
+                className="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2 disabled:opacity-50"
+              />
+              <div className="mt-2 flex items-center justify-end">
+                <button
+                  type="submit"
+                  disabled={askMutation.isPending || !question.trim()}
+                  className="px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white disabled:opacity-50 disabled:hover:bg-zinc-100"
+                >
+                  {askMutation.isPending ? 'Asking…' : 'Ask'}
+                </button>
+              </div>
+              {error && <p className="mt-2 text-red-400 text-sm">{error}</p>}
+            </div>
+          </form>
+        </section>
+      )}
 
       {/* Replies */}
       <section className="divide-y divide-zinc-800/80">
@@ -131,7 +153,6 @@ export default function Thread() {
                 </p>
                 <div className="mt-3 flex items-center gap-6 text-xs text-zinc-500">
                   <span>Reply</span>
-                  <span>Like</span>
                   <span>Share</span>
                 </div>
               </div>
