@@ -176,7 +176,7 @@ export default function Thread() {
                 maxLength={2000}
                 className="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2 disabled:opacity-50"
               />
-              <div className="mt-2 mb-2 flex items-center justify-end">
+              <div className="mt-2 flex items-center justify-end">
                 <button
                   type="submit"
                   disabled={askMutation.isPending || !question.trim()}
@@ -255,7 +255,7 @@ export default function Thread() {
                       maxLength={2000}
                       className="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2 disabled:opacity-50"
                     />
-                    <div className="mt-2 flex items-center justify-end">
+                    <div className="mt-2 mb-2 flex items-center justify-end">
                       <button
                         type="submit"
                         disabled={askMutation.isPending || !question.trim()}
