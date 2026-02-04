@@ -1,6 +1,6 @@
 import type { Config, Context } from "@netlify/edge-functions";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { corsHeaders, getUserId, jsonResponse } from "./_shared.ts";
+import { corsHeaders, getUserId, jsonResponse } from "./lib/shared.ts";
 
 export default async function handler(req: Request, _context: Context): Promise<Response> {
   if (req.method === "OPTIONS") {
