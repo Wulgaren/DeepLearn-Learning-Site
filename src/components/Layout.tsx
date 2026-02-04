@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,9 +7,18 @@ export default function Layout() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchTopic, setSearchTopic] = useState('');
   const isTopics = location.pathname.startsWith('/topics');
   const isThread = location.pathname.startsWith('/thread/');
   const headerTitle = isThread ? 'Post' : isTopics ? 'My topics' : 'Home';
+
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const topic = searchTopic.trim();
+    if (!topic) return;
+    setSearchTopic('');
+    navigate('/topics', { state: { topic } });
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -88,13 +98,15 @@ export default function Layout() {
           {/* Right sidebar */}
           <aside className="hidden lg:block sticky top-0 h-screen py-4">
             <div className="space-y-4">
-              <div className="rounded-full border border-zinc-800 bg-zinc-950/60 px-4 py-2">
+              <form onSubmit={handleSearchSubmit} className="rounded-full border border-zinc-800 bg-zinc-950/60 px-4 py-2">
                 <input
                   type="text"
-                  placeholder="Search topics"
+                  placeholder="What do you want to learn today?"
+                  value={searchTopic}
+                  onChange={(e) => setSearchTopic(e.target.value)}
                   className="w-full bg-transparent outline-none text-sm placeholder:text-zinc-500"
                 />
-              </div>
+              </form>
 
               <section className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
                 <h3 className="m-0 text-sm font-semibold">Tips</h3>

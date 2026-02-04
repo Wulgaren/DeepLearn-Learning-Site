@@ -32,6 +32,8 @@ export default function Home() {
 
   useEffect(() => {
     if (tweetsData?.tweets?.length) {
+      // Merge query result into accumulated list; intentional setState in effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAccumulatedTweets((prev) => {
         const next = new Set(prev);
         tweetsData.tweets.forEach((t) => next.add(t));
@@ -184,10 +186,9 @@ export default function Home() {
                     <p className="m-0 mt-1 text-sm leading-relaxed text-zinc-200">
                       {tweet}
                     </p>
-                    <div className="mt-3 flex items-center gap-6 text-xs text-zinc-500">
-                      <span>Click to open thread</span>
-                      {creatingTweet === tweet && <span>Creating…</span>}
-                    </div>
+                    {creatingTweet === tweet && (
+                      <p className="m-0 mt-2 text-xs text-zinc-500">Creating…</p>
+                    )}
                   </div>
                 </div>
               </button>

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getFeed, generateFeed } from '../lib/api';
 import type { FeedTopic, ThreadSummary } from '../types';
@@ -7,6 +7,8 @@ import type { FeedTopic, ThreadSummary } from '../types';
 export default function Feed() {
   const [topicInput, setTopicInput] = useState('');
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const { data, isLoading: loading, error: feedError } = useQuery({
     queryKey: ['feed'],
@@ -22,6 +24,21 @@ export default function Feed() {
       setTopicInput('');
     },
   });
+
+  const handledTopicFromNav = useRef<string | null>(null);
+  useEffect(() => {
+    const topicFromNav = (location.state as { topic?: string } | null)?.topic?.trim() ?? null;
+    if (!topicFromNav) {
+      handledTopicFromNav.current = null;
+      return;
+    }
+    if (topicFromNav === handledTopicFromNav.current) return;
+    handledTopicFromNav.current = topicFromNav;
+    generateMutation.mutate({ topic: topicFromNav });
+    navigate(location.pathname, { replace: true, state: {} });
+    // generateMutation omitted to avoid effect running on every mutation state change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when location.state has topic
+  }, [location.state, location.pathname, navigate]);
 
   const error = feedError instanceof Error ? feedError.message : feedError ? String(feedError) : undefined;
 
@@ -121,12 +138,6 @@ export default function Feed() {
                               <p className="m-0 mt-1 text-sm leading-relaxed text-zinc-200 line-clamp-3">
                                 {thread.main_post}
                               </p>
-                              <div className="mt-3 flex items-center gap-6 text-xs text-zinc-500">
-                                <span>Reply</span>
-                                <span>Repost</span>
-                                <span>Like</span>
-                                <span>Share</span>
-                              </div>
                             </div>
                           </div>
                         </Link>
