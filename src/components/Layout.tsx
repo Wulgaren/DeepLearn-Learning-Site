@@ -154,24 +154,24 @@ export default function Layout() {
           {/* Center column */}
           <main className="min-h-screen lg:border-x border-zinc-800/80">
             <header className="sticky top-0 z-10 backdrop-blur bg-black/70 border-b border-zinc-800/80">
-              <div className="px-4 py-3 flex items-center gap-3">
+              <div className="px-4 py-3 flex items-center gap-3 min-w-0">
                 {isThread && (
                   <Link to="/" className="text-zinc-300 no-underline hover:text-white shrink-0">
                     ←
                   </Link>
                 )}
-                <span className="font-semibold text-[1.05rem] min-w-0 truncate">
+                <span className="font-semibold text-[1.05rem] min-w-0 truncate flex-1">
                   {headerTitle}
                 </span>
                 {!isPublicThread && (
-                  <div className="flex items-center gap-2 ml-auto shrink-0">
-                    <span className="text-xs text-zinc-500 truncate max-w-[120px] sm:max-w-[45%]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-zinc-500 truncate min-w-0">
                       {user?.email}
                     </span>
                     <button
                       type="button"
                       onClick={() => setMobileMenuOpen(true)}
-                      className="lg:hidden p-2 -m-2 rounded-full hover:bg-zinc-800/80 text-zinc-400 hover:text-zinc-100"
+                      className="lg:hidden p-2 -m-2 rounded-full hover:bg-zinc-800/80 text-zinc-400 hover:text-zinc-100 shrink-0"
                       aria-label="Open menu"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
