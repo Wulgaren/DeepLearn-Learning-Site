@@ -15,6 +15,8 @@ export default function Thread() {
   const [replyFormAnchor, setReplyFormAnchor] = useState<number | null>(null);
   const mainInputRef = useRef<HTMLInputElement>(null);
   const replyInputRef = useRef<HTMLInputElement>(null);
+  const scrollTargetRef = useRef<HTMLElement>(null);
+  const [scrollToReplyIndex, setScrollToReplyIndex] = useState<number | null>(null);
 
   // Focus the visible reply input when opening a reply form
   useEffect(() => {
@@ -61,8 +63,21 @@ export default function Thread() {
       });
       setQuestion('');
       setReplyFormAnchor(null);
+      setScrollToReplyIndex(insertAt);
     },
   });
+
+  // Scroll to the new reply (user question) after it’s in the DOM
+  useEffect(() => {
+    if (scrollToReplyIndex === null) return;
+    const el = scrollTargetRef.current;
+    if (el) {
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
+    setScrollToReplyIndex(null);
+  }, [scrollToReplyIndex]);
 
   const error =
     (threadError != null ? getErrorMessage(threadError) : undefined) ??
@@ -95,7 +110,7 @@ export default function Thread() {
   const replies: ThreadReplyItem[] = Array.isArray(thread.replies) ? thread.replies : [];
 
   return (
-    <div className="pb-12">
+    <div className="pb-16">
       <CopyLinkToast show={linkCopied} />
       <div className="sticky top-[52px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80">
         <div className="px-1 py-2 flex items-center gap-3">
@@ -143,7 +158,7 @@ export default function Thread() {
 
       {/* Ask box – under main post when anchor is null */}
       {replyFormAnchor === null && (
-        <section className="px-1 py-4 border-b border-zinc-800/80">
+        <section className="px-1 py-4 pb-8 border-b border-zinc-800/80">
           <form onSubmit={handleAsk} className="flex gap-3">
             <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-400 shrink-0">
               You
@@ -174,7 +189,7 @@ export default function Thread() {
         </section>
       )}
 
-      {/* Replies: original thread replies (Reply #n) and inline Q&A (You / AI) as normal tweets */}
+      {/* Replies: original thread replies (Reply #n) and inline Q&A (You / AI) indented under the tweet they reply to */}
       <section className="divide-y divide-zinc-800/80">
         {replies.map((reply, i) => {
           const isTyped = typeof reply === 'object' && reply !== null && 'type' in reply && 'content' in reply;
@@ -187,8 +202,13 @@ export default function Thread() {
               : 'AI'
             : 'Reply';
           const meta = isTyped ? undefined : `#${i + 1}`;
+          const isReplyToTweet = isTyped;
           return (
-          <article key={i} className="hover:bg-zinc-950/60 transition">
+          <article
+            key={i}
+            ref={scrollToReplyIndex === i ? scrollTargetRef : undefined}
+            className={`hover:bg-zinc-950/60 transition ${isReplyToTweet ? 'pl-10 md:pl-12 border-l-2 border-zinc-800/80 ml-2' : ''}`}
+          >
             <PostRow
               as="div"
               label={label}
@@ -217,7 +237,7 @@ export default function Thread() {
             />
             {/* Ask box – under this subtweet when anchor is i */}
             {replyFormAnchor === i && (
-              <div className="mt-3 ml-12">
+              <div className="mt-3 ml-10 md:ml-12">
                 <form onSubmit={handleAsk} className="flex gap-3">
                   <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-400 shrink-0">
                     You
