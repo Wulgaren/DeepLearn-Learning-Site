@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getThread, askThread } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
@@ -116,14 +116,6 @@ export default function Thread() {
   return (
     <div className="pb-16">
       <CopyLinkToast show={linkCopied} />
-      <div className="sticky top-[50px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80">
-        <div className="px-1 py-2 flex items-center gap-3">
-          <Link to="/" className="text-zinc-300 no-underline hover:text-white">
-            ← Back
-          </Link>
-          <p className="m-0 text-sm font-semibold">Post</p>
-        </div>
-      </div>
 
       {/* Main post */}
       <article className="border-b border-zinc-800/80">
