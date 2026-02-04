@@ -2,14 +2,16 @@
 
 Turn any topic into a Twitter-style AI feed: generate threads with Groq, open threads to read replies, and ask follow-up questions. Data and auth via Supabase; deploy on Netlify.
 
+**Requirements:** [Bun](https://bun.sh/) (package manager and runtime). Node.js is not required.
+
 ## Run locally (full stack with functions)
 
-1. **Env** – Create `.env` (and optionally `.env.local`) in the project root:
+1. **Env** – Copy `.env.example` to `.env` and fill in your keys. (`.env` is gitignored—do not commit it.)
 
    - `VITE_SUPABASE_URL` – Supabase project URL  
    - `VITE_SUPABASE_ANON_KEY` – Supabase anon/public key  
-   - For **Netlify dev** (functions): also set in Netlify UI or a `.env` file that Netlify reads:
-     - `SUPABASE_URL` – same as above  
+   - For **Netlify dev** (functions), also set in the same `.env` (or Netlify UI):
+     - `SUPABASE_URL` – same as `VITE_SUPABASE_URL`  
      - `SUPABASE_SERVICE_ROLE_KEY` – Supabase service role key (Dashboard → Settings → API)  
      - `GROQ_API_KEY` – [Groq](https://console.groq.com/) API key  
 
@@ -44,3 +46,7 @@ Turn any topic into a Twitter-style AI feed: generate threads with Groq, open th
 - **Feed:** Enter a topic → Groq generates several threads (main post + replies). List of “My topics” and thread cards per topic.
 - **Thread:** Open a thread to see the main post and replies; ask follow-up questions and get tweet-style answers (with thread + Q&A history sent to Groq).
 - **Stack:** Vite + React + TypeScript, Tailwind CSS, Netlify Functions, Supabase (DB + Auth), Groq.
+
+## License
+
+MIT – see [LICENSE](LICENSE). Add your name to the copyright line in `LICENSE` if you want.
