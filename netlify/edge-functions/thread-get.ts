@@ -10,11 +10,6 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const userId = getUserId(req);
-  if (!userId) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
-  }
-
   const url = new URL(req.url);
   const threadId = url.searchParams.get("threadId");
   if (!threadId || !validateUuid(threadId)) {
@@ -39,9 +34,13 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Thread not found" }, 404);
   }
 
-  const { data: topic } = await supabase.from("topics").select("id, user_id").eq("id", thread.topic_id).single();
-  if (!topic || topic.user_id !== userId) {
-    return jsonResponse({ error: "Forbidden" }, 403);
+  // Allow viewing by link without auth; ownership check only when authenticated
+  const userId = getUserId(req);
+  if (userId) {
+    const { data: topic } = await supabase.from("topics").select("id, user_id").eq("id", thread.topic_id).single();
+    if (!topic || topic.user_id !== userId) {
+      return jsonResponse({ error: "Forbidden" }, 403);
+    }
   }
 
   return jsonResponse({

@@ -4,11 +4,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getThread, askThread } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
 import { useCopyLink } from '../hooks/useCopyLink';
+import { useAuth } from '../contexts/AuthContext';
 import CopyLinkToast from '../components/CopyLinkToast';
 import PostRow from '../components/PostRow';
 import type { ThreadReplyItem } from '../types';
 
 export default function Thread() {
+  const { user } = useAuth();
   const { threadId } = useParams<{ threadId: string }>();
   const [question, setQuestion] = useState('');
   /** null = form under main post; number = form under that reply index */
@@ -117,14 +119,9 @@ export default function Thread() {
       <div className="sticky top-[50px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80">
         <div className="px-1 py-2 flex items-center gap-3">
           <Link to="/" className="text-zinc-300 no-underline hover:text-white">
-            ←
+            ← Back
           </Link>
-          <div className="min-w-0">
-            <p className="m-0 text-sm font-semibold">Post</p>
-            <p className="m-0 text-xs text-zinc-500 truncate">
-              Thread details
-            </p>
-          </div>
+          <p className="m-0 text-sm font-semibold">Post</p>
         </div>
       </div>
 
@@ -139,13 +136,15 @@ export default function Thread() {
           actionClassName="mt-4 flex items-center gap-6 text-xs text-zinc-500"
           actions={
             <>
-              <button
-                type="button"
-                onClick={() => setReplyFormAnchor(null)}
-                className="hover:text-zinc-300 bg-transparent border-0 p-0 cursor-pointer"
-              >
-                Reply
-              </button>
+              {user && (
+                <button
+                  type="button"
+                  onClick={() => setReplyFormAnchor(null)}
+                  className="hover:text-zinc-300 bg-transparent border-0 p-0 cursor-pointer"
+                >
+                  Reply
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleShare}
@@ -158,8 +157,8 @@ export default function Thread() {
         />
       </article>
 
-      {/* Ask box – under main post when anchor is null */}
-      {replyFormAnchor === null && (
+      {/* Ask box – under main post when anchor is null (logged in only) */}
+      {user && replyFormAnchor === null && (
         <section className="px-1 py-4 pb-8 border-b border-zinc-800/80">
           <form onSubmit={handleAsk} className="flex gap-3">
             <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-400 shrink-0">
@@ -220,13 +219,15 @@ export default function Thread() {
               actionClassName="mt-3 flex items-center gap-6 text-xs text-zinc-500"
               actions={
                 <>
-                  <button
-                    type="button"
-                    onClick={() => setReplyFormAnchor(i)}
-                    className="hover:text-zinc-300 bg-transparent border-0 p-0 cursor-pointer"
-                  >
-                    Reply
-                  </button>
+                  {user && (
+                    <button
+                      type="button"
+                      onClick={() => setReplyFormAnchor(i)}
+                      className="hover:text-zinc-300 bg-transparent border-0 p-0 cursor-pointer"
+                    >
+                      Reply
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleShare}
@@ -237,8 +238,8 @@ export default function Thread() {
                 </>
               }
             />
-            {/* Ask box – under this subtweet when anchor is i */}
-            {replyFormAnchor === i && (
+            {/* Ask box – under this subtweet when anchor is i (logged in only) */}
+            {user && replyFormAnchor === i && (
               <div className="mt-3 ml-10 md:ml-12">
                 <form onSubmit={handleAsk} className="flex gap-3">
                   <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-400 shrink-0">

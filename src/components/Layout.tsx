@@ -12,6 +12,7 @@ export default function Layout() {
   const [searchTopic, setSearchTopic] = useState('');
   const isTopics = location.pathname.startsWith('/topics');
   const isThread = location.pathname.startsWith('/thread/');
+  const isPublicThread = isThread && !user;
   const headerTitle = isThread ? 'Post' : isTopics ? 'My topics' : 'Home';
   const homeActive = !isTopics && !isThread;
   const topicsActive = isTopics;
@@ -32,8 +33,9 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-black text-zinc-100">
       <div className="mx-auto w-full max-w-6xl px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_320px] gap-6">
-          {/* Left sidebar */}
+        <div className={`grid gap-6 ${isPublicThread ? 'grid-cols-1 max-w-2xl mx-auto' : 'grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_320px]'}`}>
+          {/* Left sidebar – hidden for public thread view */}
+          {!isPublicThread && (
           <aside className="hidden lg:block sticky top-0 h-screen py-4">
             <div className="flex h-full flex-col">
               <Link to="/" className="inline-flex items-center gap-2 px-3 py-2 rounded-full hover:bg-zinc-900 text-inherit">
@@ -80,6 +82,7 @@ export default function Layout() {
               </div>
             </div>
           </aside>
+          )}
 
           {/* Center column */}
           <main className="min-h-screen border-x border-zinc-800/80">
@@ -88,9 +91,15 @@ export default function Layout() {
                 <span className="font-semibold text-[1.05rem]">
                   {headerTitle}
                 </span>
-                <div className="hidden sm:block text-xs text-zinc-500 truncate max-w-[45%]">
-                  {user?.email}
-                </div>
+                {isPublicThread ? (
+                  <Link to="/login" className="text-sm font-semibold text-zinc-100 hover:text-white">
+                    Sign in
+                  </Link>
+                ) : (
+                  <div className="hidden sm:block text-xs text-zinc-500 truncate max-w-[45%]">
+                    {user?.email}
+                  </div>
+                )}
               </div>
             </header>
 
@@ -99,7 +108,8 @@ export default function Layout() {
             </div>
           </main>
 
-          {/* Right sidebar */}
+          {/* Right sidebar – hidden for public thread view */}
+          {!isPublicThread && (
           <aside className="hidden lg:block sticky top-0 h-screen py-4">
             <div className="space-y-4">
               <form onSubmit={handleSearchSubmit} className="rounded-full border border-zinc-800 bg-zinc-950/60 px-4 py-2">
@@ -139,6 +149,7 @@ export default function Layout() {
               </section>
             </div>
           </aside>
+          )}
         </div>
       </div>
     </div>

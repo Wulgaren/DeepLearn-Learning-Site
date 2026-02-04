@@ -15,6 +15,9 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/thread/:threadId" element={<Layout />}>
+            <Route index element={<Thread />} />
+          </Route>
           <Route
             path="/"
             element={
@@ -25,7 +28,6 @@ function App() {
           >
             <Route index element={<Home />} />
             <Route path="topics" element={<Feed />} />
-            <Route path="thread/:threadId" element={<Thread />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
