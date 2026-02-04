@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.94.0",
+    "@tanstack/react-query": "^5.90.20",
     "groq-sdk": "^0.37.0",
     "jsonrepair": "^3.13.2",
     "react": "^19.2.0",

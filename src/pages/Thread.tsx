@@ -1,59 +1,40 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getThread, askThread } from '../lib/api';
-import type { ThreadWithFollowUps } from '../types';
 
 export default function Thread() {
   const { threadId } = useParams<{ threadId: string }>();
-  const [data, setData] = useState<ThreadWithFollowUps | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [question, setQuestion] = useState('');
-  const [asking, setAsking] = useState(false);
+  const queryClient = useQueryClient();
 
-  const load = useCallback(async () => {
-    if (!threadId) return;
-    setLoading(true);
-    setError('');
-    try {
-      const result = await getThread(threadId);
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load thread');
-    } finally {
-      setLoading(false);
-    }
-  }, [threadId]);
+  const { data, isLoading: loading, error: threadError } = useQuery({
+    queryKey: ['thread', threadId],
+    queryFn: () => getThread(threadId!),
+    enabled: !!threadId,
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function handleAsk(e: React.FormEvent) {
-    e.preventDefault();
-    if (!threadId || !question.trim() || asking) return;
-    setAsking(true);
-    setError('');
-    try {
-      const result = await askThread(threadId, question.trim());
-      setData((prev) =>
-        prev
-          ? {
-              ...prev,
-              followUps: [...prev.followUps, result.followUp],
-            }
-          : null
+  const askMutation = useMutation({
+    mutationFn: ({ q }: { q: string }) => askThread(threadId!, q),
+    onSuccess: (result) => {
+      queryClient.setQueryData(['thread', threadId], (prev: typeof data) =>
+        prev ? { ...prev, followUps: [...prev.followUps, result.followUp] } : prev
       );
       setQuestion('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to get answer');
-    } finally {
-      setAsking(false);
-    }
+    },
+  });
+
+  const error = threadError instanceof Error ? threadError.message : threadError ? String(threadError) : askMutation.error instanceof Error ? askMutation.error.message : askMutation.error ? String(askMutation.error) : undefined;
+
+  function handleAsk(e: React.FormEvent) {
+    e.preventDefault();
+    const q = question.trim();
+    if (!threadId || !q || askMutation.isPending) return;
+    askMutation.mutate({ q });
   }
 
   if (loading) return <p className="py-4 text-zinc-500">Loading thread…</p>;
-  if (error && !data) return <p className="py-4 text-red-400">{error}</p>;
+  if (threadError && !data) return <p className="py-4 text-red-400">{error}</p>;
   if (!data) return null;
 
   const { thread, followUps } = data;
@@ -114,16 +95,16 @@ export default function Thread() {
               placeholder="Ask a follow-up question…"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              disabled={asking}
+              disabled={askMutation.isPending}
               className="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2 disabled:opacity-50"
             />
             <div className="mt-2 flex items-center justify-end">
               <button
                 type="submit"
-                disabled={asking || !question.trim()}
+                disabled={askMutation.isPending || !question.trim()}
                 className="px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white disabled:opacity-50 disabled:hover:bg-zinc-100"
               >
-                {asking ? 'Asking…' : 'Ask'}
+                {askMutation.isPending ? 'Asking…' : 'Ask'}
               </button>
             </div>
             {error && <p className="mt-2 text-red-400 text-sm">{error}</p>}

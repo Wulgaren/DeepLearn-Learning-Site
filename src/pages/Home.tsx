@@ -1,87 +1,58 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInterests, setInterests, getHomeTweets, createThreadFromTweet, getHomeThreads } from '../lib/api';
 
 type HomeThread = { id: string; main_post: string; replies: string[]; created_at: string };
 
 export default function Home() {
-  const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
-  const [loadingInterests, setLoadingInterests] = useState(true);
-  const [tweets, setTweets] = useState<string[]>([]);
-  const [loadingTweets, setLoadingTweets] = useState(false);
-  const [homeThreads, setHomeThreads] = useState<HomeThread[]>([]);
-  const [loadingHomeThreads, setLoadingHomeThreads] = useState(true);
-  const [error, setError] = useState('');
   const [creatingTweet, setCreatingTweet] = useState<string | null>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const loadInterests = useCallback(async () => {
-    setLoadingInterests(true);
-    setError('');
-    try {
-      const data = await getInterests();
-      setTags(data.tags);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load interests');
-    } finally {
-      setLoadingInterests(false);
-    }
-  }, []);
+  const { data: interestsData, isLoading: loadingInterests, error: interestsError } = useQuery({
+    queryKey: ['interests'],
+    queryFn: getInterests,
+  });
+  const tags = interestsData?.tags ?? [];
 
-  useEffect(() => {
-    loadInterests();
-  }, [loadInterests]);
+  const { data: homeThreadsData, isLoading: loadingHomeThreads } = useQuery({
+    queryKey: ['homeThreads'],
+    queryFn: getHomeThreads,
+  });
+  const homeThreads = homeThreadsData?.threads ?? [];
 
-  const loadHomeThreads = useCallback(async () => {
-    setLoadingHomeThreads(true);
-    try {
-      const data = await getHomeThreads();
-      setHomeThreads(data.threads);
-    } catch {
-      setHomeThreads([]);
-    } finally {
-      setLoadingHomeThreads(false);
-    }
-  }, []);
+  const { data: tweetsData, isLoading: loadingTweets, error: tweetsError } = useQuery({
+    queryKey: ['homeTweets'],
+    queryFn: getHomeTweets,
+    enabled: tags.length > 0,
+  });
+  const tweets = tweetsData?.tweets ?? [];
 
-  useEffect(() => {
-    loadHomeThreads();
-  }, [loadHomeThreads]);
+  const setInterestsMutation = useMutation({
+    mutationFn: setInterests,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['interests'] });
+      queryClient.invalidateQueries({ queryKey: ['homeTweets'] });
+    },
+  });
 
-  useEffect(() => {
-    if (tags.length === 0) {
-      setTweets([]);
-      return;
-    }
-    let cancelled = false;
-    setLoadingTweets(true);
-    setError('');
-    getHomeTweets()
-      .then((data) => {
-        if (!cancelled) setTweets(data.tweets);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load tweets');
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingTweets(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [tags.length]);
+  const createThreadMutation = useMutation({
+    mutationFn: createThreadFromTweet,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['homeThreads'] });
+      navigate(`/thread/${data.threadId}`);
+    },
+    onError: () => {
+      setCreatingTweet(null);
+    },
+  });
 
-  async function saveTags(newTags: string[]) {
-    setError('');
-    try {
-      await setInterests(newTags);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save interests');
-    }
-  }
+  const err = interestsError ?? tweetsError ?? setInterestsMutation.error ?? createThreadMutation.error;
+  const error = err instanceof Error ? err.message : err ? String(err) : undefined;
 
-  async function handleAddTag(e: React.FormEvent) {
+  function handleAddTag(e: React.FormEvent) {
     e.preventDefault();
     const raw = tagInput.trim();
     if (!raw) {
@@ -99,27 +70,18 @@ export default function Home() {
     }
     const next = [...tags, ...newTags];
     setTagInput('');
-    await saveTags(next);
-    setTags(next);
+    setInterestsMutation.mutate(next);
   }
 
-  async function handleRemoveTag(tag: string) {
+  function handleRemoveTag(tag: string) {
     const next = tags.filter((t) => t !== tag);
-    await saveTags(next);
-    setTags(next);
+    setInterestsMutation.mutate(next);
   }
 
-  async function handleTweetClick(tweet: string) {
+  function handleTweetClick(tweet: string) {
     if (creatingTweet) return;
     setCreatingTweet(tweet);
-    setError('');
-    try {
-      const { threadId } = await createThreadFromTweet(tweet);
-      navigate(`/thread/${threadId}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create thread');
-      setCreatingTweet(null);
-    }
+    createThreadMutation.mutate(tweet);
   }
 
   function handleOpenThread(threadId: string) {
@@ -145,7 +107,7 @@ export default function Home() {
               />
               <button
                 type="submit"
-                disabled={!tagInput.trim()}
+                disabled={!tagInput.trim() || setInterestsMutation.isPending}
                 className="px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white disabled:opacity-50 text-sm"
               >
                 Add
@@ -231,7 +193,7 @@ export default function Home() {
           <p className="text-zinc-500 text-sm">Threads you open from the suggestions above will appear here.</p>
         ) : (
           <div className="divide-y divide-zinc-800/80">
-            {homeThreads.map((thread) => (
+            {homeThreads.map((thread: HomeThread) => (
               <button
                 key={thread.id}
                 type="button"
