@@ -58,3 +58,42 @@ export async function askThread(threadId: string, question: string): Promise<{
   if (!res.ok) throw new Error(data.error ?? 'Failed to get answer');
   return data;
 }
+
+export async function getInterests(): Promise<{ tags: string[] }> {
+  const res = await fetch(`${BASE}/interests`, { headers: await getAuthHeaders() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Failed to load interests');
+  return data;
+}
+
+export async function setInterests(tags: string[]): Promise<void> {
+  const res = await fetch(`${BASE}/interests`, {
+    method: 'POST',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ tags }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Failed to save interests');
+}
+
+export async function getHomeTweets(): Promise<{ tweets: string[] }> {
+  const res = await fetch(`${BASE}/home-tweets`, {
+    method: 'POST',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({}),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Failed to load tweets');
+  return data;
+}
+
+export async function createThreadFromTweet(tweet: string): Promise<{ threadId: string }> {
+  const res = await fetch(`${BASE}/thread-from-tweet`, {
+    method: 'POST',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ tweet }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Failed to create thread');
+  return data;
+}

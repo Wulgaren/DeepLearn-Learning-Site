@@ -32,10 +32,29 @@ create index if not exists topics_created_at_idx on public.topics(created_at des
 create index if not exists threads_topic_id_idx on public.threads(topic_id);
 create index if not exists follow_ups_thread_id_idx on public.follow_ups(thread_id);
 
+-- User interests (tags for Home feed)
+create table if not exists public.user_interests (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  tags text[] not null default '{}'
+);
+
 -- RLS: users can only access their own data
 alter table public.topics enable row level security;
 alter table public.threads enable row level security;
 alter table public.follow_ups enable row level security;
+alter table public.user_interests enable row level security;
+
+-- User interests: own row only (select + insert/update for upsert)
+create policy "Users can view own interests"
+  on public.user_interests for select
+  using (auth.uid() = user_id);
+create policy "Users can insert own interests"
+  on public.user_interests for insert
+  with check (auth.uid() = user_id);
+create policy "Users can update own interests"
+  on public.user_interests for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 -- Topics: CRUD for own rows
 create policy "Users can manage own topics"

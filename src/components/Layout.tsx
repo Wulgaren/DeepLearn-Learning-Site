@@ -1,10 +1,14 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Layout() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTopics = location.pathname.startsWith('/topics');
+  const isThread = location.pathname.startsWith('/thread/');
+  const headerTitle = isThread ? 'Post' : isTopics ? 'My topics' : 'Home';
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -25,13 +29,13 @@ export default function Layout() {
               <nav className="mt-4 flex flex-col gap-1">
                 <Link
                   to="/"
-                  className="px-3 py-2 rounded-full text-[0.95rem] font-semibold hover:bg-zinc-900"
+                  className={`px-3 py-2 rounded-full text-[0.95rem] font-semibold hover:bg-zinc-900 ${!isTopics && !isThread ? '' : 'text-zinc-300 hover:text-zinc-100'}`}
                 >
                   Home
                 </Link>
                 <Link
-                  to="/"
-                  className="px-3 py-2 rounded-full text-[0.95rem] font-semibold text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
+                  to="/topics"
+                  className={`px-3 py-2 rounded-full text-[0.95rem] font-semibold hover:bg-zinc-900 ${isTopics ? '' : 'text-zinc-300 hover:text-zinc-100'}`}
                 >
                   My topics
                 </Link>
@@ -39,7 +43,7 @@ export default function Layout() {
 
               <div className="mt-4 px-3">
                 <Link
-                  to="/"
+                  to="/topics"
                   className="block w-full text-center px-4 py-3 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white transition"
                 >
                   Generate
@@ -66,9 +70,9 @@ export default function Layout() {
           <main className="min-h-screen border-x border-zinc-800/80">
             <header className="sticky top-0 z-10 backdrop-blur bg-black/70 border-b border-zinc-800/80">
               <div className="px-4 py-3 flex items-center justify-between">
-                <Link to="/" className="font-semibold text-[1.05rem] text-inherit no-underline">
-                  Home
-                </Link>
+                <span className="font-semibold text-[1.05rem]">
+                  {headerTitle}
+                </span>
                 <div className="hidden sm:block text-xs text-zinc-500 truncate max-w-[45%]">
                   {user?.email}
                 </div>

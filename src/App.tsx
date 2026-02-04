@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Home from './pages/Home';
 import Feed from './pages/Feed';
 import Thread from './pages/Thread';
 
@@ -22,7 +23,8 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Feed />} />
+            <Route index element={<Home />} />
+            <Route path="topics" element={<Feed />} />
             <Route path="thread/:threadId" element={<Thread />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

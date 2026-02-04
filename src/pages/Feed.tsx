@@ -103,7 +103,7 @@ export default function Feed() {
           <div className="divide-y divide-zinc-800/80">
             {topics.map((topic) => (
               <div key={topic.id}>
-                <div className="sticky top-[52px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80">
+                <div className="sticky top-[50px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80">
                   <div className="px-1 py-2">
                     <p className="m-0 text-xs text-zinc-500">Topic</p>
                     <h2 className="m-0 text-sm font-semibold text-zinc-200 truncate">{topic.query}</h2>
