@@ -72,7 +72,13 @@ export default function Thread() {
     e.preventDefault();
     const q = question.trim();
     if (!threadId || !q || askMutation.isPending) return;
-    const replyContext = replyFormAnchor !== null && replies[replyFormAnchor] != null ? replies[replyFormAnchor] : undefined;
+    const anchorReply = replyFormAnchor !== null ? replies[replyFormAnchor] : undefined;
+    const replyContext: string | undefined =
+      anchorReply != null
+        ? typeof anchorReply === 'string'
+          ? anchorReply
+          : anchorReply.content
+        : undefined;
     askMutation.mutate({ q, replyContext, replyIndex: replyFormAnchor });
   }
 
@@ -168,12 +174,18 @@ export default function Thread() {
         </section>
       )}
 
-      {/* Replies */}
+      {/* Replies: original thread replies (Reply #n) and inline Q&A (You / AI) as normal tweets */}
       <section className="divide-y divide-zinc-800/80">
         {replies.map((reply, i) => {
-          const isTyped = typeof reply !== 'string';
-          const body = isTyped ? reply.content : reply;
-          const label = isTyped ? (reply.type === 'user' ? 'You' : 'AI') : 'Reply';
+          const isTyped = typeof reply === 'object' && reply !== null && 'type' in reply && 'content' in reply;
+          const body: string = isTyped
+            ? String((reply as { type: string; content: string }).content ?? '')
+            : String(reply);
+          const label = isTyped
+            ? (reply as { type: string }).type === 'user'
+              ? 'You'
+              : 'AI'
+            : 'Reply';
           const meta = isTyped ? undefined : `#${i + 1}`;
           return (
           <article key={i} className="hover:bg-zinc-950/60 transition">
