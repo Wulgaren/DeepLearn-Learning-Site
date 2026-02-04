@@ -49,17 +49,19 @@ export default function Thread() {
       replyIndex: number | null;
     }) => askThread(threadId!, q, { replyContext, replyIndex }),
     onSuccess: (result, { q, replyIndex }) => {
-      queryClient.setQueryData(['thread', threadId], (prev: typeof data) => {
-        if (!prev?.thread) return prev;
-        const replies = prev.thread.replies ?? [];
-        const insertAt = replyIndex === null ? replies.length : replyIndex + 1;
+      const prev = queryClient.getQueryData<typeof data>(['thread', threadId]);
+      const replies = prev?.thread?.replies ?? [];
+      const insertAt = replyIndex === null ? replies.length : replyIndex + 1;
+      queryClient.setQueryData(['thread', threadId], (prevData: typeof data) => {
+        if (!prevData?.thread) return prevData;
+        const prevReplies = prevData.thread.replies ?? [];
         const newReplies: ThreadReplyItem[] = [
-          ...replies.slice(0, insertAt),
+          ...prevReplies.slice(0, insertAt),
           { type: 'user', content: q },
           { type: 'ai', content: result.answer },
-          ...replies.slice(insertAt),
+          ...prevReplies.slice(insertAt),
         ];
-        return { thread: { ...prev.thread, replies: newReplies } };
+        return { thread: { ...prevData.thread, replies: newReplies } };
       });
       setQuestion('');
       setReplyFormAnchor(null);
