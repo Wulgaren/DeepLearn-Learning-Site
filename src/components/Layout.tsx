@@ -22,7 +22,8 @@ export default function Layout() {
           {/* Left sidebar */}
           <aside className="hidden lg:block sticky top-0 h-screen py-4">
             <div className="flex h-full flex-col">
-              <Link to="/" className="inline-flex items-center gap-2 px-3 py-2 rounded-full hover:bg-zinc-900">
+              <Link to="/" className="inline-flex items-center gap-2 px-3 py-2 rounded-full hover:bg-zinc-900 text-inherit">
+                <img src="/learning-icon.svg" alt="" className="h-8 w-8 text-zinc-100 [filter:invert(1)]" />
                 <span className="text-xl font-bold tracking-tight">Learning</span>
               </Link>
 

@@ -1,4 +1,5 @@
 const BASE = '/.netlify/functions';
+const EDGE_BASE = ''; // edge functions at /api/*
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const { supabase } = await import('./supabase');
@@ -27,7 +28,7 @@ export async function getFeed(): Promise<{
   topics: Array<{ id: string; query: string; created_at: string }>;
   threadsByTopic: Record<string, Array<{ id: string; main_post: string; replies: string[]; created_at: string }>>;
 }> {
-  const res = await fetch(`${BASE}/feed`, { headers: await getAuthHeaders() });
+  const res = await fetch(`${EDGE_BASE}/api/feed`, { headers: await getAuthHeaders() });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? 'Failed to load feed');
   return data;
@@ -37,7 +38,7 @@ export async function getThread(threadId: string): Promise<{
   thread: { id: string; topic_id: string; main_post: string; replies: string[]; created_at: string };
   followUps: Array<{ id: string; user_question: string; ai_answer: string; created_at: string }>;
 }> {
-  const res = await fetch(`${BASE}/thread-get?threadId=${encodeURIComponent(threadId)}`, {
+  const res = await fetch(`${EDGE_BASE}/api/thread-get?threadId=${encodeURIComponent(threadId)}`, {
     headers: await getAuthHeaders(),
   });
   const data = await res.json();
@@ -60,14 +61,14 @@ export async function askThread(threadId: string, question: string): Promise<{
 }
 
 export async function getInterests(): Promise<{ tags: string[] }> {
-  const res = await fetch(`${BASE}/interests`, { headers: await getAuthHeaders() });
+  const res = await fetch(`${EDGE_BASE}/api/interests`, { headers: await getAuthHeaders() });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? 'Failed to load interests');
   return data;
 }
 
 export async function setInterests(tags: string[]): Promise<void> {
-  const res = await fetch(`${BASE}/interests`, {
+  const res = await fetch(`${EDGE_BASE}/api/interests`, {
     method: 'POST',
     headers: await getAuthHeaders(),
     body: JSON.stringify({ tags }),

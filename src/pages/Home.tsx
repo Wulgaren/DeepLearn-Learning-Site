@@ -63,12 +63,21 @@ export default function Home() {
 
   async function handleAddTag(e: React.FormEvent) {
     e.preventDefault();
-    const value = tagInput.trim();
-    if (!value || tags.includes(value)) {
+    const raw = tagInput.trim();
+    if (!raw) {
       setTagInput('');
       return;
     }
-    const next = [...tags, value];
+    const newTags = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .filter((t) => !tags.includes(t));
+    if (newTags.length === 0) {
+      setTagInput('');
+      return;
+    }
+    const next = [...tags, ...newTags];
     setTagInput('');
     await saveTags(next);
     setTags(next);
@@ -105,7 +114,7 @@ export default function Home() {
             <form onSubmit={handleAddTag} className="flex gap-2 mb-3">
               <input
                 type="text"
-                placeholder="Add an interest (e.g. React, history, cooking)"
+                placeholder="Add interests (comma-separated, e.g. React, history, cooking)"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 className="flex-1 px-4 py-2 rounded-full border border-zinc-800 bg-zinc-950/60 text-inherit text-sm placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-zinc-600"
