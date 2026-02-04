@@ -46,14 +46,18 @@ export async function getThread(threadId: string): Promise<{
   return data;
 }
 
-export async function askThread(threadId: string, question: string): Promise<{
+export async function askThread(
+  threadId: string,
+  question: string,
+  replyContext?: string
+): Promise<{
   answer: string;
   followUp: { id: string; user_question: string; ai_answer: string; created_at: string };
 }> {
   const res = await fetch(`${BASE}/thread-ask`, {
     method: 'POST',
     headers: await getAuthHeaders(),
-    body: JSON.stringify({ threadId, question }),
+    body: JSON.stringify({ threadId, question, replyContext: replyContext || undefined }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? 'Failed to get answer');

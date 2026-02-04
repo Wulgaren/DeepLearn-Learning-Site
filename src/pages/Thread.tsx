@@ -6,7 +6,8 @@ import { getThread, askThread } from '../lib/api';
 export default function Thread() {
   const { threadId } = useParams<{ threadId: string }>();
   const [question, setQuestion] = useState('');
-  const [showReplyForm, setShowReplyForm] = useState(false);
+  /** null = form under main post; number = form under that reply index */
+  const [replyFormAnchor, setReplyFormAnchor] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const { data, isLoading: loading, error: threadError } = useQuery({
@@ -16,7 +17,8 @@ export default function Thread() {
   });
 
   const askMutation = useMutation({
-    mutationFn: ({ q }: { q: string }) => askThread(threadId!, q),
+    mutationFn: ({ q, replyContext }: { q: string; replyContext?: string }) =>
+      askThread(threadId!, q, replyContext),
     onSuccess: (result) => {
       queryClient.setQueryData(['thread', threadId], (prev: typeof data) =>
         prev ? { ...prev, followUps: [...prev.followUps, result.followUp] } : prev
@@ -31,7 +33,8 @@ export default function Thread() {
     e.preventDefault();
     const q = question.trim();
     if (!threadId || !q || askMutation.isPending) return;
-    askMutation.mutate({ q });
+    const context = replyFormAnchor !== null && replies[replyFormAnchor] != null ? replies[replyFormAnchor] : undefined;
+    askMutation.mutate({ q, replyContext: context });
   }
 
   function getThreadUrl(id: string) {
@@ -86,7 +89,7 @@ export default function Thread() {
             <div className="mt-4 flex items-center gap-6 text-xs text-zinc-500">
               <button
                 type="button"
-                onClick={() => setShowReplyForm((v) => !v)}
+                onClick={() => setReplyFormAnchor(null)}
                 className="hover:text-zinc-300 bg-transparent border-0 p-0 cursor-pointer"
               >
                 Reply
@@ -103,8 +106,8 @@ export default function Thread() {
         </div>
       </article>
 
-      {/* Ask box – only when Reply was clicked */}
-      {showReplyForm && (
+      {/* Ask box – under main post when anchor is null */}
+      {replyFormAnchor === null && (
         <section className="px-1 py-4 border-b border-zinc-800/80">
           <form onSubmit={handleAsk} className="flex gap-3">
             <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-400 shrink-0">
@@ -152,11 +155,53 @@ export default function Thread() {
                   {reply}
                 </p>
                 <div className="mt-3 flex items-center gap-6 text-xs text-zinc-500">
-                  <span>Reply</span>
-                  <span>Share</span>
+                  <button
+                    type="button"
+                    onClick={() => setReplyFormAnchor(i)}
+                    className="hover:text-zinc-300 bg-transparent border-0 p-0 cursor-pointer"
+                  >
+                    Reply
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    className="hover:text-zinc-300 bg-transparent border-0 p-0 cursor-pointer"
+                  >
+                    Share
+                  </button>
                 </div>
               </div>
             </div>
+            {/* Ask box – under this subtweet when anchor is i */}
+            {replyFormAnchor === i && (
+              <div className="mt-3 ml-12">
+                <form onSubmit={handleAsk} className="flex gap-3">
+                  <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-400 shrink-0">
+                    You
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="text"
+                      placeholder="Ask a follow-up about this reply…"
+                      value={question}
+                      onChange={(e) => setQuestion(e.target.value)}
+                      disabled={askMutation.isPending}
+                      className="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2 disabled:opacity-50"
+                    />
+                    <div className="mt-2 flex items-center justify-end">
+                      <button
+                        type="submit"
+                        disabled={askMutation.isPending || !question.trim()}
+                        className="px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white disabled:opacity-50 disabled:hover:bg-zinc-100"
+                      >
+                        {askMutation.isPending ? 'Asking…' : 'Ask'}
+                      </button>
+                    </div>
+                    {error && <p className="mt-2 text-red-400 text-sm">{error}</p>}
+                  </div>
+                </form>
+              </div>
+            )}
           </article>
         ))}
       </section>
@@ -165,7 +210,7 @@ export default function Thread() {
       {followUps.length > 0 && (
         <section className="mt-6">
           <h3 className="m-0 text-sm font-semibold text-zinc-400">Q&amp;A</h3>
-          <div className="mt-3 space-y-3">
+          <div className="mt-3 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
             {followUps.map((f) => (
               <div key={f.id} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
                 <p className="m-0 text-sm leading-relaxed">

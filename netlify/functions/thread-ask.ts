@@ -41,7 +41,7 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 
-  let body: { threadId?: string; question?: string };
+  let body: { threadId?: string; question?: string; replyContext?: string };
   try {
     body = event.body ? JSON.parse(event.body) : {};
   } catch {
@@ -49,6 +49,7 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   }
   const threadId = body.threadId;
   const question = typeof body.question === 'string' ? body.question.trim() : '';
+  const replyContext = typeof body.replyContext === 'string' ? body.replyContext.trim() : undefined;
   if (!threadId || !question) {
     return jsonResponse({ error: 'Missing threadId or question' }, 400);
   }
@@ -91,11 +92,14 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   ].join('\n');
 
   const groq = new Groq({ apiKey: groqApiKey });
+  const contextNote = replyContext
+    ? `\nThe user is asking specifically about this part of the thread: «${replyContext}»\nAnswer in that context.\n\n`
+    : '';
   const prompt = `You are an informative, friendly tutor. Given this thread and any previous Q&A:
 
 ${context}
 
-User asks: ${question}
+${contextNote}User asks: ${question}
 
 Reply in 1–4 clear sentences. Be helpful and conversational. Only state factual, verifiable information—use real examples, real names, real studies. Do not invent or speculate; if unsure, say so. No JSON, no quotes—just the reply text.`;
 
