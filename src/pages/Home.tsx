@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInterests, setInterests, getHomeTweets, createThreadFromTweet, getHomeThreads } from '../lib/api';
@@ -8,6 +8,7 @@ type HomeThread = { id: string; main_post: string; replies: string[]; created_at
 export default function Home() {
   const [tagInput, setTagInput] = useState('');
   const [creatingTweet, setCreatingTweet] = useState<string | null>(null);
+  const [accumulatedTweets, setAccumulatedTweets] = useState<string[]>([]);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -28,11 +29,21 @@ export default function Home() {
     queryFn: getHomeTweets,
     enabled: tags.length > 0,
   });
-  const tweets = tweetsData?.tweets ?? [];
+
+  useEffect(() => {
+    if (tweetsData?.tweets?.length) {
+      setAccumulatedTweets((prev) => {
+        const next = new Set(prev);
+        tweetsData.tweets.forEach((t) => next.add(t));
+        return Array.from(next);
+      });
+    }
+  }, [tweetsData]);
 
   const setInterestsMutation = useMutation({
     mutationFn: setInterests,
     onSuccess: () => {
+      setAccumulatedTweets([]);
       queryClient.invalidateQueries({ queryKey: ['interests'] });
       queryClient.invalidateQueries({ queryKey: ['homeTweets'] });
     },
@@ -147,19 +158,20 @@ export default function Home() {
           <p className="text-zinc-500 text-sm py-6">
             Add interests above, then open Home to see personalized tweet ideas.
           </p>
-        ) : loadingTweets ? (
+        ) : loadingTweets && accumulatedTweets.length === 0 ? (
           <p className="text-zinc-500 text-sm py-6">Loading tweet ideas…</p>
-        ) : tweets.length === 0 ? (
+        ) : accumulatedTweets.length === 0 ? (
           <p className="text-zinc-500 text-sm py-6">No tweet ideas right now. Try adding more interests.</p>
         ) : (
           <div className="divide-y divide-zinc-800/80">
-            {tweets.map((tweet, i) => (
+            {accumulatedTweets.map((tweet, i) => (
               <button
-                key={i}
+                key={`${i}-${tweet.slice(0, 40)}`}
                 type="button"
                 onClick={() => handleTweetClick(tweet)}
                 disabled={!!creatingTweet}
                 className="w-full text-left px-1 py-4 hover:bg-zinc-950/60 transition border-b border-zinc-800/80 last:border-b-0 disabled:opacity-70 cursor-pointer"
+                style={{ cursor: creatingTweet ? undefined : 'pointer' }}
               >
                 <div className="flex gap-3">
                   <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-300 shrink-0">
@@ -199,6 +211,7 @@ export default function Home() {
                 type="button"
                 onClick={() => handleOpenThread(thread.id)}
                 className="w-full text-left px-1 py-4 hover:bg-zinc-950/60 transition border-b border-zinc-800/80 last:border-b-0 cursor-pointer"
+                style={{ cursor: 'pointer' }}
               >
                 <div className="flex gap-3">
                   <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-300 shrink-0">

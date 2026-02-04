@@ -9,6 +9,12 @@ body {
   @apply antialiased min-h-screen bg-black text-zinc-100;
 }
 
+/* Clickable card-style buttons and links show pointer */
+button[type="button"]:not(:disabled),
+a[href] {
+  cursor: pointer;
+}
+
 /* Slightly nicer scrollbars on desktop */
 @media (pointer: fine) {
   * {
