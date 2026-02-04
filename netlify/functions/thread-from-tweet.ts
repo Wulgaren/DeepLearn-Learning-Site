@@ -2,7 +2,15 @@ import type { HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import Groq from 'groq-sdk';
 import { jsonrepair } from 'jsonrepair';
-import { corsHeaders, getUserId, jsonResponse, sanitizeForPrompt, sanitizeForDb } from './_shared';
+import {
+  corsHeaders,
+  getUserId,
+  jsonResponse,
+  sanitizeForPrompt,
+  sanitizeForDb,
+  classifyNeedsWebGrounding,
+  GROQ_COMPOUND_MODEL,
+} from './_shared';
 
 const REPLIES_COUNT = 5;
 
@@ -77,6 +85,15 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   }
 
   const groq = new Groq({ apiKey: groqApiKey });
+
+  const classifierPrompt = `Does expanding this tweet into an informative thread require external or up-to-date information beyond general knowledge? (e.g. recent events, current stats, specific names/dates.) Reply with only YES or NO.
+
+---TWEET---
+${tweet}
+---`;
+  const useWebGrounding = await classifyNeedsWebGrounding(groq, classifierPrompt);
+  const model = useWebGrounding ? GROQ_COMPOUND_MODEL : 'openai/gpt-oss-120b';
+
   const prompt = `You are an expert educator. This is a single "tweet" (main post) that a reader clicked on. Generate exactly ${REPLIES_COUNT} reply posts that expand on it in a thread. Be factual and accurate: only state true, verifiable information. Use real people, real events, real studies—no invented examples. If something is uncertain, say so. Each reply 1–4 sentences, up to ~400 characters. Conversational, flowing sentences—no bullet lists.
 
 ---MAIN POST---
@@ -91,7 +108,7 @@ Rules: One JSON object only. No code fences. No newlines inside strings. Use sin
   let raw: string;
   try {
     const completion = await groq.chat.completions.create({
-      model: 'openai/gpt-oss-120b',
+      model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
       max_tokens: 2048,

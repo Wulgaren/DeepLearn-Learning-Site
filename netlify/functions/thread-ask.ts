@@ -1,7 +1,16 @@
 import type { HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import Groq from 'groq-sdk';
-import { corsHeaders, getUserId, jsonResponse, validateUuid, sanitizeForPrompt, sanitizeForDb } from './_shared';
+import {
+  corsHeaders,
+  getUserId,
+  jsonResponse,
+  validateUuid,
+  sanitizeForPrompt,
+  sanitizeForDb,
+  classifyNeedsWebGrounding,
+  GROQ_COMPOUND_MODEL,
+} from './_shared';
 
 export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   if (event.httpMethod === 'OPTIONS') {
@@ -68,6 +77,7 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   const context = ['Thread (main): ' + mainSafe, ...replyLines].join('\n');
 
   const groq = new Groq({ apiKey: groqApiKey });
+
   const contextNote = replyContext
     ? `\nThe user is asking specifically about this part of the thread: «${replyContext}»\nAnswer in that context.\n\n`
     : '';
@@ -83,10 +93,20 @@ ${question}
 
 Reply in 1–4 clear sentences. Be helpful and conversational. Only state factual, verifiable information—use real examples, real names, real studies. Do not invent or speculate; if unsure, say so. No JSON, no quotes—just the reply text.`;
 
+  const classifierPrompt = `Given this thread and the user's question, does answering accurately require external or up-to-date information that is NOT in the thread? (e.g. recent events, specific numbers, names, dates, or facts beyond the thread.) Reply with only YES or NO.
+
+---THREAD---
+${context.slice(0, 2000)}
+---QUESTION---
+${question}
+---`;
+  const useWebGrounding = await classifyNeedsWebGrounding(groq, classifierPrompt);
+  const model = useWebGrounding ? GROQ_COMPOUND_MODEL : 'openai/gpt-oss-120b';
+
   let answer: string;
   try {
     const completion = await groq.chat.completions.create({
-      model: 'openai/gpt-oss-120b',
+      model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.6,
       max_tokens: 400,

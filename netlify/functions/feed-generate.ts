@@ -2,7 +2,15 @@ import type { HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { jsonrepair } from 'jsonrepair';
 import Groq from 'groq-sdk';
-import { corsHeaders, getUserId, jsonResponse, sanitizeForPrompt, sanitizeForDb } from './_shared';
+import {
+  corsHeaders,
+  getUserId,
+  jsonResponse,
+  sanitizeForPrompt,
+  sanitizeForDb,
+  classifyNeedsWebGrounding,
+  GROQ_COMPOUND_MODEL,
+} from './_shared';
 
 const THREADS_COUNT = 6;
 const REPLIES_PER_THREAD = 5;
@@ -42,6 +50,14 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const groq = new Groq({ apiKey: groqApiKey });
 
+  const classifierPrompt = `Does generating informative, accurate content for the following topic require external or up-to-date information beyond general knowledge? (e.g. recent events, current stats, breaking news.) Reply with only YES or NO.
+
+---TOPIC---
+${topic}
+---`;
+  const useWebGrounding = await classifyNeedsWebGrounding(groq, classifierPrompt);
+  const model = useWebGrounding ? GROQ_COMPOUND_MODEL : 'openai/gpt-oss-120b';
+
   const prompt = `You are an expert educator. Generate exactly ${THREADS_COUNT} informative threads about the topic below.
 
 ---TOPIC---
@@ -63,7 +79,7 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
   let raw: string;
   try {
     const completion = await groq.chat.completions.create({
-      model: 'openai/gpt-oss-120b',
+      model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
       max_tokens: 8192,
