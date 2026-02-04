@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getThread, askThread } from '../lib/api';
@@ -14,6 +14,20 @@ export default function Thread() {
   const [replyFormAnchor, setReplyFormAnchor] = useState<number | null>(null);
   const qaSectionRef = useRef<HTMLElement>(null);
   const qaListRef = useRef<HTMLDivElement>(null);
+  const mainInputRef = useRef<HTMLInputElement>(null);
+  const replyInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the visible reply input when opening a reply form
+  useEffect(() => {
+    const focusInput = () => {
+      if (replyFormAnchor === null) {
+        mainInputRef.current?.focus();
+      } else {
+        replyInputRef.current?.focus();
+      }
+    };
+    requestAnimationFrame(focusInput);
+  }, [replyFormAnchor]);
   const { copyLink, linkCopied } = useCopyLink();
   const queryClient = useQueryClient();
 
@@ -31,6 +45,8 @@ export default function Thread() {
         prev ? { ...prev, followUps: [...prev.followUps, result.followUp] } : prev
       );
       setQuestion('');
+      // Blur so scroll isn't overridden by browser keeping focused input in view
+      (document.activeElement as HTMLElement)?.blur();
       // Scroll to Q&A section and to the new item after DOM updates
       setTimeout(() => {
         qaSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -121,6 +137,7 @@ export default function Thread() {
             </div>
             <div className="flex-1">
               <input
+                ref={mainInputRef}
                 type="text"
                 placeholder="Ask a follow-up question…"
                 value={question}
@@ -182,6 +199,7 @@ export default function Thread() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <input
+                      ref={replyInputRef}
                       type="text"
                       placeholder="Ask a follow-up about this reply…"
                       value={question}
