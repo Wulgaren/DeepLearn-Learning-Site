@@ -6,11 +6,15 @@ import {
   corsHeaders,
   getUserId,
   jsonResponse,
+  log,
+  logAi,
   sanitizeForPrompt,
   sanitizeForDb,
   classifyNeedsWebGrounding,
   GROQ_COMPOUND_MODEL,
 } from './_shared';
+
+const FN = 'thread-from-tweet';
 
 const REPLIES_COUNT = 5;
 
@@ -66,7 +70,7 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
       .select('id')
       .single();
     if (topicError || !inserted) {
-      console.error('Topic insert error:', topicError);
+      log(FN, 'error', 'Topic insert error', topicError);
       return jsonResponse({ error: 'Failed to create topic' }, 500);
     }
     topicRow = inserted;
@@ -80,7 +84,7 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
     .single();
 
   if (threadError || !threadRow) {
-    console.error('Thread insert error:', threadError);
+    log(FN, 'error', 'Thread insert error', threadError);
     return jsonResponse({ error: 'Failed to create thread' }, 500);
   }
 
@@ -93,6 +97,7 @@ ${tweet}
 ---`;
   const useWebGrounding = await classifyNeedsWebGrounding(groq, classifierPrompt);
   const model = useWebGrounding ? GROQ_COMPOUND_MODEL : 'openai/gpt-oss-120b';
+  log(FN, 'info', 'request', { model, tweetLen: tweet.length });
 
   const prompt = `You are an expert educator. This is a single "tweet" (main post) that a reader clicked on. Generate exactly ${REPLIES_COUNT} reply posts that expand on it in a thread. Be factual and accurate: only state true, verifiable information. Use real people, real events, real studies—no invented examples. If something is uncertain, say so. Each reply 1–4 sentences, up to ~400 characters. Conversational, flowing sentences—no bullet lists.
 
@@ -114,13 +119,18 @@ Rules: One JSON object only. No code fences. No newlines inside strings. Use sin
       max_tokens: 2048,
     });
     raw = completion.choices[0]?.message?.content?.trim() ?? '';
+    logAi(FN, {
+      model,
+      rawResponse: raw,
+      usage: completion.usage ? { prompt_tokens: completion.usage.prompt_tokens, completion_tokens: completion.usage.completion_tokens } : undefined,
+    });
   } catch (err) {
-    console.error('Groq error:', err);
+    logAi(FN, { model, error: err });
     return jsonResponse({ error: 'AI service error' }, 502);
   }
 
   if (!raw) {
-    console.error('Groq returned empty response for thread-from-tweet');
+    log(FN, 'error', 'AI returned empty response', { model });
     return jsonResponse({ error: 'AI returned an empty response. Please try again.' }, 502);
   }
 
@@ -151,7 +161,7 @@ Rules: One JSON object only. No code fences. No newlines inside strings. Use sin
 
   const replies = parseReplies(raw);
   if (replies.length === 0) {
-    console.error('Groq response could not be parsed or had no replies');
+    log(FN, 'error', 'AI response could not be parsed or had no replies', { model, rawPreview: raw.slice(0, 200) });
     return jsonResponse({ error: 'AI could not generate replies. Please try again.' }, 502);
   }
 
@@ -161,9 +171,10 @@ Rules: One JSON object only. No code fences. No newlines inside strings. Use sin
     .eq('id', threadRow.id);
 
   if (updateError) {
-    console.error('Thread update error:', updateError);
+    log(FN, 'error', 'Thread update error', updateError);
     return jsonResponse({ error: 'Failed to save replies' }, 500);
   }
 
+  log(FN, 'info', 'success', { threadId: threadRow.id, repliesCount: replies.length });
   return jsonResponse({ threadId: threadRow.id });
 }

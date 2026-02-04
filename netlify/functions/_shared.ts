@@ -22,8 +22,11 @@ export async function classifyNeedsWebGrounding(groq: InstanceType<typeof Groq>,
       max_tokens: CLASSIFIER_MAX_TOKENS,
     });
     const text = (completion.choices[0]?.message?.content ?? '').trim().toUpperCase();
-    return text.startsWith('YES');
-  } catch {
+    const useWeb = text.startsWith('YES');
+    log('classifier', 'info', 'needsWebGrounding', { model: CLASSIFIER_MODEL, response: text.slice(0, 20), useWeb });
+    return useWeb;
+  } catch (err) {
+    log('classifier', 'warn', 'Classification failed, defaulting to no web', { error: err instanceof Error ? err.message : String(err) });
     return false;
   }
 }
@@ -93,4 +96,55 @@ export function jsonResponse(body: unknown, status = 200): HandlerResponse {
     headers: { 'Content-Type': 'application/json', ...corsHeaders },
     body: JSON.stringify(body),
   };
+}
+
+// --- Logging (Netlify function logs) ---
+const LOG_PREFIX = '[fn]';
+const MAX_PAYLOAD_CHARS = 1200;
+
+type LogLevel = 'info' | 'warn' | 'error';
+
+function serializePayload(data: unknown): string {
+  if (data === undefined) return '';
+  try {
+    const s = typeof data === 'string' ? data : JSON.stringify(data);
+    return s.length <= MAX_PAYLOAD_CHARS ? s : s.slice(0, MAX_PAYLOAD_CHARS) + `... (${s.length} chars)`;
+  } catch {
+    return String(data).slice(0, MAX_PAYLOAD_CHARS);
+  }
+}
+
+/** Structured log for serverless functions. */
+export function log(fn: string, level: LogLevel, message: string, data?: unknown): void {
+  const payload = data !== undefined ? serializePayload(data) : '';
+  const line = payload ? `${LOG_PREFIX}[${fn}] ${level}: ${message} ${payload}` : `${LOG_PREFIX}[${fn}] ${level}: ${message}`;
+  if (level === 'error') console.error(line);
+  else if (level === 'warn') console.warn(line);
+  else console.log(line);
+}
+
+/** Log AI request/response: model, truncated raw response, usage, or error. */
+export function logAi(
+  fn: string,
+  opts: {
+    model: string;
+    rawResponse?: string;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+    error?: unknown;
+  }
+): void {
+  const { model, rawResponse, usage, error } = opts;
+  const parts: string[] = [`model=${model}`];
+  if (usage?.prompt_tokens != null) parts.push(`prompt_tokens=${usage.prompt_tokens}`);
+  if (usage?.completion_tokens != null) parts.push(`completion_tokens=${usage.completion_tokens}`);
+  if (error !== undefined) {
+    log(fn, 'error', 'AI error', { model, error: error instanceof Error ? error.message : String(error) });
+    return;
+  }
+  const truncated = rawResponse
+    ? rawResponse.length <= MAX_PAYLOAD_CHARS
+      ? rawResponse
+      : rawResponse.slice(0, MAX_PAYLOAD_CHARS) + `... (${rawResponse.length} chars)`
+    : '(empty)';
+  log(fn, 'info', 'AI response', { model, ...(parts.length > 1 ? { usage: parts.slice(1).join(', ') } : {}), raw: truncated });
 }

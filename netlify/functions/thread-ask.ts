@@ -5,12 +5,16 @@ import {
   corsHeaders,
   getUserId,
   jsonResponse,
+  log,
+  logAi,
   validateUuid,
   sanitizeForPrompt,
   sanitizeForDb,
   classifyNeedsWebGrounding,
   GROQ_COMPOUND_MODEL,
 } from './_shared';
+
+const FN = 'thread-ask';
 
 export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
   if (event.httpMethod === 'OPTIONS') {
@@ -102,6 +106,7 @@ ${question}
 ---`;
   const useWebGrounding = await classifyNeedsWebGrounding(groq, classifierPrompt);
   const model = useWebGrounding ? GROQ_COMPOUND_MODEL : 'openai/gpt-oss-120b';
+  log(FN, 'info', 'request', { threadId, model, questionLen: question.length });
 
   let answer: string;
   try {
@@ -112,13 +117,18 @@ ${question}
       max_tokens: 400,
     });
     answer = (completion.choices[0]?.message?.content ?? '').trim();
+    logAi(FN, {
+      model,
+      rawResponse: answer,
+      usage: completion.usage ? { prompt_tokens: completion.usage.prompt_tokens, completion_tokens: completion.usage.completion_tokens } : undefined,
+    });
   } catch (err) {
-    console.error('Groq error:', err);
+    logAi(FN, { model, error: err });
     return jsonResponse({ error: 'AI service error' }, 502);
   }
 
   if (!answer || answer.length < 2) {
-    console.error('Groq returned empty or invalid reply');
+    log(FN, 'error', 'AI returned empty or invalid reply', { model });
     return jsonResponse({ error: 'AI returned an empty response. Please try again.' }, 502);
   }
 
@@ -138,9 +148,10 @@ ${question}
     .eq('id', threadId);
 
   if (updateError) {
-    console.error('Thread update error:', updateError);
+    log(FN, 'error', 'Thread update error', updateError);
     return jsonResponse({ error: 'Failed to save reply' }, 500);
   }
 
+  log(FN, 'info', 'success', { threadId });
   return jsonResponse({ answer });
 }

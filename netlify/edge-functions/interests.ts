@@ -1,6 +1,8 @@
 import type { Config, Context } from "@netlify/edge-functions";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { corsHeaders, getUserId, jsonResponse, sanitizeTag, MAX_TAGS_COUNT } from "./lib/shared.ts";
+import { corsHeaders, getUserId, jsonResponse, log, sanitizeTag, MAX_TAGS_COUNT } from "./lib/shared.ts";
+
+const FN = "interests";
 
 export default async function handler(req: Request, _context: Context): Promise<Response> {
   if (req.method === "OPTIONS") {
@@ -12,8 +14,10 @@ export default async function handler(req: Request, _context: Context): Promise<
 
   const userId = getUserId(req);
   if (!userId) {
+    log(FN, "warn", "Unauthorized");
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
+  log(FN, "info", "request", { method: req.method });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -31,7 +35,7 @@ export default async function handler(req: Request, _context: Context): Promise<
       .maybeSingle();
 
     if (error) {
-      console.error("Interests get error:", error);
+      log(FN, "error", "Interests get error", error);
       return jsonResponse({ error: "Failed to load interests" }, 500);
     }
     const tags = Array.isArray(row?.tags) ? row.tags : [];
@@ -59,7 +63,7 @@ export default async function handler(req: Request, _context: Context): Promise<
   );
 
   if (upsertError) {
-    console.error("Interests upsert error:", upsertError);
+    log(FN, "error", "Interests upsert error", upsertError);
     return jsonResponse({ error: "Failed to save interests" }, 500);
   }
 

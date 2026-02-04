@@ -1,6 +1,8 @@
 import type { Config, Context } from "@netlify/edge-functions";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { corsHeaders, getUserId, jsonResponse } from "./lib/shared.ts";
+import { corsHeaders, getUserId, jsonResponse, log } from "./lib/shared.ts";
+
+const FN = "home-threads";
 
 export default async function handler(req: Request, _context: Context): Promise<Response> {
   if (req.method === "OPTIONS") {
@@ -12,8 +14,10 @@ export default async function handler(req: Request, _context: Context): Promise<
 
   const userId = getUserId(req);
   if (!userId) {
+    log(FN, "warn", "Unauthorized");
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
+  log(FN, "info", "request", { method: req.method });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -32,6 +36,7 @@ export default async function handler(req: Request, _context: Context): Promise<
     .maybeSingle();
 
   if (topicError || !topic) {
+    log(FN, "info", "no Home topic or error", topicError ?? "no topic");
     return jsonResponse({ threads: [] });
   }
 
@@ -42,7 +47,7 @@ export default async function handler(req: Request, _context: Context): Promise<
     .order("created_at", { ascending: false });
 
   if (threadsError) {
-    console.error("Home threads error:", threadsError);
+    log(FN, "error", "Home threads error", threadsError);
     return jsonResponse({ error: "Failed to load threads" }, 500);
   }
 
@@ -53,6 +58,7 @@ export default async function handler(req: Request, _context: Context): Promise<
     created_at: t.created_at,
   }));
 
+  log(FN, "info", "success", { threadsCount: list.length });
   return jsonResponse({ threads: list });
 }
 

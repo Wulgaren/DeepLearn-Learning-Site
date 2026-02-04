@@ -2,7 +2,9 @@ import type { HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import Groq from 'groq-sdk';
 import { jsonrepair } from 'jsonrepair';
-import { corsHeaders, getUserId, jsonResponse, sanitizeForPrompt } from './_shared';
+import { corsHeaders, getUserId, jsonResponse, log, logAi, sanitizeForPrompt } from './_shared';
+
+const FN = 'home-tweets';
 
 const MAX_TWEETS = 10;
 const MAX_ALREADY_COVERED_IN_PROMPT = 30;
@@ -36,7 +38,7 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
     .maybeSingle();
 
   if (interestsError) {
-    console.error('Interests fetch error:', interestsError);
+    log(FN, 'error', 'Interests fetch error', interestsError);
     return jsonResponse({ error: 'Failed to load interests' }, 500);
   }
 
@@ -46,6 +48,7 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
     .map((t) => sanitizeForPrompt(String(t).trim(), 80))
     .filter(Boolean);
   if (interests.length === 0) {
+    log(FN, 'info', 'No interests, returning empty tweets');
     return jsonResponse({ tweets: [] });
   }
 
@@ -87,6 +90,8 @@ export async function handler(event: HandlerEvent): Promise<HandlerResponse> {
       : '';
 
   const groq = new Groq({ apiKey: groqApiKey });
+  log(FN, 'info', 'request', { interestsCount: interests.length });
+
   const prompt = `---USER INTERESTS---
 ${interests.join(', ')}
 ---END USER INTERESTS---
@@ -99,22 +104,28 @@ Return ONLY a JSON array of strings, nothing else. No markdown, no code fences, 
 
 Rules: Use single quotes inside strings if needed; avoid unescaped double quotes inside the tweet text. No trailing comma.`;
 
+  const model = 'openai/gpt-oss-120b';
   let raw: string;
   try {
     const completion = await groq.chat.completions.create({
-      model: 'openai/gpt-oss-120b',
+      model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.8,
       max_tokens: 2048,
     });
     raw = completion.choices[0]?.message?.content?.trim() ?? '';
+    logAi(FN, {
+      model,
+      rawResponse: raw,
+      usage: completion.usage ? { prompt_tokens: completion.usage.prompt_tokens, completion_tokens: completion.usage.completion_tokens } : undefined,
+    });
   } catch (err) {
-    console.error('Groq error:', err);
+    logAi(FN, { model, error: err });
     return jsonResponse({ error: 'AI service error' }, 502);
   }
 
   if (!raw) {
-    console.error('Groq returned empty response for home-tweets');
+    log(FN, 'error', 'AI returned empty response', { model });
     return jsonResponse({ error: 'AI returned an empty response. Please try again.' }, 502);
   }
 
@@ -150,9 +161,10 @@ Rules: Use single quotes inside strings if needed; avoid unescaped double quotes
   );
 
   if (upsertError) {
-    console.error('Home suggestions upsert error:', upsertError);
+    log(FN, 'error', 'Home suggestions upsert error', upsertError);
     return jsonResponse({ error: 'Failed to save suggestions' }, 500);
   }
 
+  log(FN, 'info', 'success', { tweetsCount: merged.length });
   return jsonResponse({ tweets: merged });
 }

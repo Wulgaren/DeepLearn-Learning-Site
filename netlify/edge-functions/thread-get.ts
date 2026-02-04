@@ -1,6 +1,8 @@
 import type { Config, Context } from "@netlify/edge-functions";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { corsHeaders, getUserId, jsonResponse, validateUuid } from "./lib/shared.ts";
+import { corsHeaders, getUserId, jsonResponse, log, validateUuid } from "./lib/shared.ts";
+
+const FN = "thread-get";
 
 export default async function handler(req: Request, _context: Context): Promise<Response> {
   if (req.method === "OPTIONS") {
@@ -13,8 +15,10 @@ export default async function handler(req: Request, _context: Context): Promise<
   const url = new URL(req.url);
   const threadId = url.searchParams.get("threadId");
   if (!threadId || !validateUuid(threadId)) {
+    log(FN, "warn", "Invalid or missing threadId");
     return jsonResponse({ error: "Invalid or missing thread" }, 400);
   }
+  log(FN, "info", "request", { threadId });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -31,6 +35,7 @@ export default async function handler(req: Request, _context: Context): Promise<
     .single();
 
   if (threadError || !thread) {
+    log(FN, "warn", "Thread not found", { threadId, error: threadError });
     return jsonResponse({ error: "Thread not found" }, 404);
   }
 
@@ -39,10 +44,12 @@ export default async function handler(req: Request, _context: Context): Promise<
   if (userId) {
     const { data: topic } = await supabase.from("topics").select("id, user_id").eq("id", thread.topic_id).single();
     if (!topic || topic.user_id !== userId) {
+      log(FN, "warn", "Forbidden", { threadId });
       return jsonResponse({ error: "Forbidden" }, 403);
     }
   }
 
+  log(FN, "info", "success", { threadId: thread.id });
   return jsonResponse({
     thread: {
       id: thread.id,

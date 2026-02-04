@@ -6,11 +6,15 @@ import {
   corsHeaders,
   getUserId,
   jsonResponse,
+  log,
+  logAi,
   sanitizeForPrompt,
   sanitizeForDb,
   classifyNeedsWebGrounding,
   GROQ_COMPOUND_MODEL,
 } from './_shared';
+
+const FN = 'feed-generate';
 
 const THREADS_COUNT = 6;
 const REPLIES_PER_THREAD = 5;
@@ -57,6 +61,7 @@ ${topic}
 ---`;
   const useWebGrounding = await classifyNeedsWebGrounding(groq, classifierPrompt);
   const model = useWebGrounding ? GROQ_COMPOUND_MODEL : 'openai/gpt-oss-120b';
+  log(FN, 'info', 'request', { model, topic });
 
   const prompt = `You are an expert educator. Generate exactly ${THREADS_COUNT} informative threads about the topic below.
 
@@ -85,8 +90,13 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
       max_tokens: 8192,
     });
     raw = completion.choices[0]?.message?.content?.trim() ?? '';
+    logAi(FN, {
+      model,
+      rawResponse: raw,
+      usage: completion.usage ? { prompt_tokens: completion.usage.prompt_tokens, completion_tokens: completion.usage.completion_tokens } : undefined,
+    });
   } catch (err) {
-    console.error('Groq error:', err);
+    logAi(FN, { model, error: err });
     return jsonResponse({ error: 'AI service error' }, 502);
   }
 
@@ -116,7 +126,7 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
 
   const parsed = extractAndParse(raw);
   if (!parsed) {
-    console.error('Feed generate: failed to parse AI response. Raw (first 1200 chars):', raw.slice(0, 1200));
+    log(FN, 'error', 'Failed to parse AI response', { model, rawPreview: raw.slice(0, 500) });
     return jsonResponse({ error: 'Invalid AI response format' }, 502);
   }
 
@@ -133,7 +143,7 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
     .single();
 
   if (topicError || !topicRow) {
-    console.error('Topic insert error:', topicError);
+    log(FN, 'error', 'Topic insert error', topicError);
     return jsonResponse({ error: 'Failed to save topic' }, 500);
   }
 
@@ -149,10 +159,11 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
     .select('id, main_post, replies, created_at');
 
   if (threadsError || !insertedThreads?.length) {
-    console.error('Threads insert error:', threadsError);
+    log(FN, 'error', 'Threads insert error', threadsError);
     return jsonResponse({ error: 'Failed to save threads' }, 500);
   }
 
+  log(FN, 'info', 'success', { topicId: topicRow.id, threadIds: insertedThreads.map((t) => t.id) });
   return jsonResponse({
     topicId: topicRow.id,
     threadIds: insertedThreads.map((t) => t.id),

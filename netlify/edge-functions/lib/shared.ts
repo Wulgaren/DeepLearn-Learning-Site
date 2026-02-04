@@ -4,6 +4,30 @@ export const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
+const LOG_PREFIX = "[edge]";
+const MAX_PAYLOAD_CHARS = 800;
+
+type LogLevel = "info" | "warn" | "error";
+
+function serializePayload(data: unknown): string {
+  if (data === undefined) return "";
+  try {
+    const s = typeof data === "string" ? data : JSON.stringify(data);
+    return s.length <= MAX_PAYLOAD_CHARS ? s : s.slice(0, MAX_PAYLOAD_CHARS) + `... (${s.length} chars)`;
+  } catch {
+    return String(data).slice(0, MAX_PAYLOAD_CHARS);
+  }
+}
+
+/** Structured log for edge functions. Shows up in Netlify function logs. */
+export function log(fn: string, level: LogLevel, message: string, data?: unknown): void {
+  const payload = data !== undefined ? serializePayload(data) : "";
+  const line = payload ? `${LOG_PREFIX}[${fn}] ${level}: ${message} ${payload}` : `${LOG_PREFIX}[${fn}] ${level}: ${message}`;
+  if (level === "error") console.error(line);
+  else if (level === "warn") console.warn(line);
+  else console.log(line);
+}
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function validateUuid(s: unknown): s is string {
