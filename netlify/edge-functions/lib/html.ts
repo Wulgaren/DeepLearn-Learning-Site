@@ -28,7 +28,7 @@ const LAYOUT_OPTS = { title: "DeepLearn" };
 
 type NavItem = { label: string; href: string; active?: boolean };
 
-/** Injected when serving no-JS HTML so JS-enabled clients upgrade to the SPA on reload. */
+/** Injected in <head> when serving no-JS HTML so JS-enabled clients set cookie and reload before paint. */
 const JS_UPGRADE_SCRIPT =
   '<script>document.cookie="dl_js=1;path=/;max-age=31536000";window.location.reload();</script>';
 
@@ -94,6 +94,7 @@ export function layout(
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(title)}</title>
   <style>body{${bodyStyle}}@media(max-width:768px){.dl-grid{grid-template-columns:1fr !important;}}</style>
+  ${jsUpgrade ? JS_UPGRADE_SCRIPT : ""}
 </head>
 <body style="${bodyStyle}">
   <div style="max-width:72rem;margin:0 auto;padding:0 1rem;">
@@ -120,13 +121,18 @@ export function layout(
       ${rightAside}
     </div>
   </div>
-  ${jsUpgrade ? JS_UPGRADE_SCRIPT : ""}
 </body>
 </html>`;
 }
 
 /** Auth pages: centered form, no nav. White/light mode. */
-export function layoutAuth(title: string, body: string, footerHtml: string): string {
+export function layoutAuth(
+  title: string,
+  body: string,
+  footerHtml: string,
+  opts?: { injectJsUpgrade?: boolean }
+): string {
+  const jsUpgrade = opts?.injectJsUpgrade === true;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -134,6 +140,7 @@ export function layoutAuth(title: string, body: string, footerHtml: string): str
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(title)} – DeepLearn</title>
   <style>body{background:#fff;color:#18181b;font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
+  ${jsUpgrade ? JS_UPGRADE_SCRIPT : ""}
 </head>
 <body style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;background:#fff;color:#18181b;">
   <div style="width:100%;max-width:360px;border-radius:0.75rem;border:1px solid #e4e4e7;background:#fafafa;padding:2rem;">
@@ -160,6 +167,7 @@ export function layoutPublicThread(
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(headerTitle)} – DeepLearn</title>
   <style>body{background:#fff;color:#18181b;font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
+  ${jsUpgrade ? JS_UPGRADE_SCRIPT : ""}
 </head>
 <body style="background:#fff;color:#18181b;min-height:100vh;">
   <div style="max-width:72rem;margin:0 auto;padding:0 1rem;">
@@ -176,7 +184,6 @@ export function layoutPublicThread(
       </main>
     </div>
   </div>
-  ${jsUpgrade ? JS_UPGRADE_SCRIPT : ""}
 </body>
 </html>`;
 }

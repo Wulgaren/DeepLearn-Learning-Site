@@ -49,7 +49,12 @@ async function parseFormBody(req: Request): Promise<Record<string, string>> {
   return out;
 }
 
-export default async function handler(req: Request, _context: Context): Promise<Response> {
+/** True when client has proven JS (cookie set by no-JS upgrade script). */
+function prefersSpa(req: Request): boolean {
+  return /(^|;\s)dl_js=1(\s|;|$)/.test(req.headers.get("cookie") ?? "");
+}
+
+export default async function handler(req: Request, context: Context): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname;
 
@@ -65,8 +70,9 @@ export default async function handler(req: Request, _context: Context): Promise<
     return redirect("/login", { name: SESSION_COOKIE_NAME, value: "", clear: true }, isHttps);
   }
 
-  // GET /login — show form
+  // GET /login — pass through to SPA when JS proven; else show no-JS form with head upgrade script
   if (path === "/login" && req.method === "GET") {
+    if (prefersSpa(req)) return context.next();
     const error = url.searchParams.get("error");
     const message = url.searchParams.get("message");
     const body = `
@@ -79,12 +85,13 @@ export default async function handler(req: Request, _context: Context): Promise<
       <button type="submit" class="mt-1 px-4 py-3 rounded-lg border border-zinc-300 bg-zinc-800 text-white font-medium hover:bg-zinc-700">Log in</button>
     </form>`;
     const footer = `<p class="mt-5 text-sm text-zinc-600">Don't have an account? <a href="/signup" class="text-blue-600 hover:underline">Sign up</a></p>`;
-    const html = layoutAuth("Log in", body, footer);
+    const html = layoutAuth("Log in", body, footer, { injectJsUpgrade: true });
     return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
   }
 
-  // GET /signup — show form
+  // GET /signup — pass through to SPA when JS proven; else show no-JS form with head upgrade script
   if (path === "/signup" && req.method === "GET") {
+    if (prefersSpa(req)) return context.next();
     const error = url.searchParams.get("error");
     const body = `
     <p class="text-zinc-600 text-sm mb-6 leading-snug">Create an account to save your topics and threads.</p>
@@ -95,7 +102,7 @@ export default async function handler(req: Request, _context: Context): Promise<
       <button type="submit" class="mt-1 px-4 py-3 rounded-lg border border-zinc-300 bg-zinc-800 text-white font-medium hover:bg-zinc-700">Sign up</button>
     </form>`;
     const footer = `<p class="mt-5 text-sm text-zinc-600">Already have an account? <a href="/login" class="text-blue-600 hover:underline">Log in</a></p>`;
-    const html = layoutAuth("Sign up", body, footer);
+    const html = layoutAuth("Sign up", body, footer, { injectJsUpgrade: true });
     return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
   }
 
