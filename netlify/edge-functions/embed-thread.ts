@@ -2,7 +2,7 @@ import type { Config, Context } from "@netlify/edge-functions";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { log, validateUuid } from "./lib/shared.ts";
 
-const FN = "thread-embed";
+const FN = "embed-thread";
 
 /** User-Agent substrings for crawlers that render Open Graph / embeds (Discord, Twitter, Slack, etc.) */
 const CRAWLER_AGENTS = [
