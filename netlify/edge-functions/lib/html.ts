@@ -28,6 +28,10 @@ const LAYOUT_OPTS = { title: "DeepLearn" };
 
 type NavItem = { label: string; href: string; active?: boolean };
 
+/** Injected when serving no-JS HTML so JS-enabled clients upgrade to the SPA on reload. */
+const JS_UPGRADE_SCRIPT =
+  '<script>document.cookie="dl_js=1;path=/;max-age=31536000";window.location.reload();</script>';
+
 export function layout(
   body: string,
   opts: {
@@ -38,6 +42,8 @@ export function layout(
     userEmail?: string;
     rightSidebar?: boolean;
     theme?: "dark" | "light";
+    /** If true, inject script that sets dl_js cookie and reloads so next request gets SPA. */
+    injectJsUpgrade?: boolean;
   } = {}
 ): string {
   const title = opts.title ?? LAYOUT_OPTS.title;
@@ -68,6 +74,7 @@ export function layout(
     ? `<span style="font-size:0.75rem;color:${light ? "#71717a" : "#71717a"};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(userEmail)}</span>`
     : "";
 
+  const jsUpgrade = opts.injectJsUpgrade === true;
   const rightAside = rightSidebar
     ? light
       ? `<aside style="padding:1rem 0;"><form method="post" action="/topics" style="border:1px solid #e4e4e7;border-radius:9999px;background:#fafafa;padding:0.5rem 1rem;"><input type="text" name="topic" placeholder="What do you want to learn today?" maxlength="500" style="width:100%;background:transparent;border:0;outline:0;font-size:0.875rem;" /></form><section style="border:1px solid #e4e4e7;border-radius:1rem;background:#fafafa;padding:1rem;margin-top:1rem;"><h3 style="margin:0;font-size:0.875rem;font-weight:600;color:#18181b;">Tips</h3><p style="margin:0.5rem 0 0;font-size:0.875rem;color:#52525b;line-height:1.5;">Generate threads for a topic, then open one to read replies and ask follow-up questions.</p></section></aside>`
@@ -113,6 +120,7 @@ export function layout(
       ${rightAside}
     </div>
   </div>
+  ${jsUpgrade ? JS_UPGRADE_SCRIPT : ""}
 </body>
 </html>`;
 }
@@ -138,7 +146,13 @@ export function layoutAuth(title: string, body: string, footerHtml: string): str
 }
 
 /** Layout for public thread (no sidebar nav, no user). Light/white mode. */
-export function layoutPublicThread(body: string, headerTitle: string, backHref: string): string {
+export function layoutPublicThread(
+  body: string,
+  headerTitle: string,
+  backHref: string,
+  opts?: { injectJsUpgrade?: boolean }
+): string {
+  const jsUpgrade = opts?.injectJsUpgrade === true;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -162,6 +176,7 @@ export function layoutPublicThread(body: string, headerTitle: string, backHref: 
       </main>
     </div>
   </div>
+  ${jsUpgrade ? JS_UPGRADE_SCRIPT : ""}
 </body>
 </html>`;
 }

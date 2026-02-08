@@ -57,6 +57,11 @@ export default async function handler(
   const token = getTokenFromCookie(req);
   const userId = getUserId(req);
 
+  // Prefer SPA when client has proven JS (cookie set by no-JS upgrade script).
+  const prefersSpa =
+    method === "GET" &&
+    /(^|;\s)dl_js=1(\s|;|$)/.test(req.headers.get("cookie") ?? "");
+
   // ----- POST handlers (forms) -----
 
   if (method === "POST" && path === "/topics") {
@@ -162,6 +167,7 @@ export default async function handler(
   }
 
   if (method === "GET" && path === "/") {
+    if (prefersSpa) return context.next();
     const [interestsRes, homeThreadsRes, homeTweetsRes] = await Promise.all([
       fetch(`${origin}/api/interests`, { headers: apiHeaders(req) }),
       fetch(`${origin}/api/home-threads`, { headers: apiHeaders(req) }),
@@ -241,6 +247,7 @@ export default async function handler(
       ],
       headerTitle: "Home",
       userEmail: undefined, // we don't have email in JWT easily; could skip or decode
+      injectJsUpgrade: true,
     });
     return new Response(html, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -248,6 +255,7 @@ export default async function handler(
   }
 
   if (method === "GET" && path === "/topics") {
+    if (prefersSpa) return context.next();
     const feedRes = await fetch(`${origin}/api/feed`, { headers: apiHeaders(req) });
     if (!feedRes.ok) return redirect("/login");
     const feedData = (await feedRes.json()) as {
@@ -309,6 +317,7 @@ export default async function handler(
       ],
       headerTitle: "My topics",
       userEmail: undefined,
+      injectJsUpgrade: true,
     });
     return new Response(html, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -316,6 +325,7 @@ export default async function handler(
   }
 
   if (method === "GET" && path === "/thread/new") {
+    if (prefersSpa) return context.next();
     const tweetParam = url.searchParams.get("tweet") ?? "";
     const tweet = tweetParam.trim().slice(0, 2000);
 
@@ -353,6 +363,7 @@ export default async function handler(
       headerTitle: "New thread",
       headerBackHref: "/",
       userEmail: undefined,
+      injectJsUpgrade: true,
     });
     return new Response(html, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -361,6 +372,7 @@ export default async function handler(
 
   const threadMatch = path.match(/^\/thread\/([^/]+)$/);
   if (method === "GET" && threadMatch) {
+    if (prefersSpa) return context.next();
     const threadId = threadMatch[1];
     if (!validateUuid(threadId)) return context.next();
     const threadRes = await fetch(
@@ -453,7 +465,7 @@ export default async function handler(
 
     const usePublicLayout = !userId;
     const html = usePublicLayout
-      ? layoutPublicThread(threadBody, "Post", "/")
+      ? layoutPublicThread(threadBody, "Post", "/", { injectJsUpgrade: true })
       : layout(threadBody, {
           nav: [
             { label: "Home", href: "/", active: false },
@@ -463,6 +475,7 @@ export default async function handler(
           headerBackHref: "/",
           userEmail: undefined,
           rightSidebar: true,
+          injectJsUpgrade: true,
         });
     return new Response(html, {
       headers: { "Content-Type": "text/html; charset=utf-8" },

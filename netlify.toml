@@ -7,7 +7,7 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Edge (html-app on /*) serves no-JS HTML for /, /topics, /thread/*, /thread/new; auth edges serve /login, /signup, /logout. When edge passes through, SPA redirect applies.
+# Edge (html-app on /*): Serves no-JS HTML for /, /topics, /thread/*, /thread/new when client has no dl_js cookie; if cookie present (set by upgrade script when JS runs), passes through to SPA. So: JS disabled → no-JS; JS enabled → one reload then React SPA.
 # SPA: serve index.html for all routes so client-side router can handle /thread/:id etc.
 [[redirects]]
   from = "/*"
