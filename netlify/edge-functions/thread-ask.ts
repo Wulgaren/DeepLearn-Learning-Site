@@ -114,7 +114,7 @@ ${question}
       temperature: 0.6,
       max_tokens: 400,
     });
-    answer = result.content;
+    answer = (result.content ?? "").trim();
     logAi(FN, { model, rawResponse: answer, usage: result.usage });
   } catch (err) {
     logAi(FN, { model, error: err });
