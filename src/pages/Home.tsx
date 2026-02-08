@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInterests, setInterests, getHomeTweets, createThreadFromTweet, getHomeThreads } from '../lib/api';
@@ -7,11 +7,13 @@ import { formatThreadDate } from '../lib/format';
 import { useCopyLink } from '../hooks/useCopyLink';
 import CopyLinkToast from '../components/CopyLinkToast';
 import PostRow from '../components/PostRow';
+import { getThreadUrl } from '../lib/urls';
 import type { ThreadSummary } from '../types';
 
 export default function Home() {
   const [tagInput, setTagInput] = useState('');
   const [creatingTweet, setCreatingTweet] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tweet: string } | null>(null);
   const { copyLink, linkCopied } = useCopyLink();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -44,10 +46,15 @@ export default function Home() {
   });
 
   const createThreadMutation = useMutation({
-    mutationFn: createThreadFromTweet,
-    onSuccess: (data) => {
+    mutationFn: ({ tweet }: { tweet: string }) => createThreadFromTweet(tweet),
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['homeThreads'] });
-      navigate(`/thread/${data.threadId}`);
+      setCreatingTweet(null);
+      if (variables.openInNewTab) {
+        window.open(getThreadUrl(data.threadId), '_blank');
+      } else {
+        navigate(`/thread/${data.threadId}`);
+      }
     },
     onError: () => {
       setCreatingTweet(null);
@@ -86,11 +93,7 @@ export default function Home() {
   function handleTweetClick(tweet: string) {
     if (creatingTweet) return;
     setCreatingTweet(tweet);
-    createThreadMutation.mutate(tweet);
-  }
-
-  function handleOpenThread(threadId: string) {
-    navigate(`/thread/${threadId}`);
+    createThreadMutation.mutate({ tweet });
   }
 
   function handleShare(e: React.MouseEvent, threadId: string) {
@@ -99,9 +102,59 @@ export default function Home() {
     void copyLink(threadId);
   }
 
+  const handleSuggestionContextMenu = useCallback((e: React.MouseEvent, tweet: string) => {
+    e.preventDefault();
+    if (creatingTweet) return;
+    setContextMenu({ x: e.clientX, y: e.clientY, tweet });
+  }, [creatingTweet]);
+
+  const handleOpenInNewTab = useCallback(() => {
+    if (!contextMenu) return;
+    const { tweet } = contextMenu;
+    setContextMenu(null);
+    setCreatingTweet(tweet);
+    createThreadMutation.mutate({ tweet, openInNewTab: true });
+  }, [contextMenu, createThreadMutation]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener('click', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [contextMenu]);
+
   return (
     <div className="pb-10">
       <CopyLinkToast show={linkCopied} />
+      {contextMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            aria-hidden
+            onClick={() => setContextMenu(null)}
+          />
+          <div
+            className="fixed z-50 min-w-[160px] rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              type="button"
+              className="w-full px-4 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenInNewTab();
+              }}
+              disabled={!!creatingTweet}
+            >
+              Open in new tab
+            </button>
+          </div>
+        </>
+      )}
       {/* Interests */}
       <section className="py-4 border-b border-zinc-800/80">
         <h2 className="text-sm font-semibold text-zinc-400 mb-3">Your interests</h2>
@@ -166,19 +219,23 @@ export default function Home() {
         ) : (
           <div className="divide-y divide-zinc-800/80">
             {tweets.map((tweet, i) => (
-              <PostRow
+              <div
                 key={`${i}-${tweet.slice(0, 40)}`}
-                as="button"
-                onClick={() => handleTweetClick(tweet)}
-                disabled={!!creatingTweet}
-                label="For you"
-                body={tweet}
-                extra={
-                  creatingTweet === tweet ? (
-                    <p className="m-0 mt-2 text-xs text-zinc-500">Creating…</p>
-                  ) : undefined
-                }
-              />
+                onContextMenu={(e) => handleSuggestionContextMenu(e, tweet)}
+              >
+                <PostRow
+                  as="button"
+                  onClick={() => handleTweetClick(tweet)}
+                  disabled={!!creatingTweet}
+                  label="For you"
+                  body={tweet}
+                  extra={
+                    creatingTweet === tweet ? (
+                      <p className="m-0 mt-2 text-xs text-zinc-500">Creating…</p>
+                    ) : undefined
+                  }
+                />
+              </div>
             ))}
           </div>
         )}
@@ -196,8 +253,8 @@ export default function Home() {
             {homeThreads.map((thread: ThreadSummary) => (
               <PostRow
                 key={thread.id}
-                as="button"
-                onClick={() => handleOpenThread(thread.id)}
+                as="link"
+                to={`/thread/${thread.id}`}
                 label="Thread"
                 meta={`${Array.isArray(thread.replies) ? thread.replies.length : 0} replies · ${formatThreadDate(thread.created_at)}`}
                 body={thread.main_post}
