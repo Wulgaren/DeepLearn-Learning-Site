@@ -30,13 +30,13 @@ function SidebarContent({
           <nav className="mt-4 flex flex-col gap-1">
             <Link
               to="/"
-              className={`px-3 py-2 rounded-full text-[0.95rem] font-semibold hover:bg-zinc-900 ${homeActive ? '' : navInactiveClass}`}
+              className={`px-3 py-2 rounded-full text-lg font-semibold hover:bg-zinc-900 ${homeActive ? '' : navInactiveClass}`}
             >
               Home
             </Link>
             <Link
               to="/topics"
-              className={`px-3 py-2 rounded-full text-[0.95rem] font-semibold hover:bg-zinc-900 ${topicsActive ? '' : navInactiveClass}`}
+              className={`px-3 py-2 rounded-full text-lg font-semibold hover:bg-zinc-900 ${topicsActive ? '' : navInactiveClass}`}
             >
               My topics
             </Link>

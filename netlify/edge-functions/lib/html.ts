@@ -1,5 +1,3 @@
-import { criticalCss } from "./critical-css.ts";
-
 /** Escape for HTML text content to prevent XSS. */
 export function escapeHtml(s: string): string {
   return s
@@ -26,10 +24,7 @@ export function formatThreadDate(created_at: string): string {
   }
 }
 
-const LAYOUT_OPTS = {
-  title: "DeepLearn",
-  cssHref: "/site.css",
-};
+const LAYOUT_OPTS = { title: "DeepLearn" };
 
 type NavItem = { label: string; href: string; active?: boolean };
 
@@ -53,95 +48,65 @@ export function layout(
   const rightSidebar = opts.rightSidebar !== false;
   const light = opts.theme !== "dark";
 
-  const gridCols = rightSidebar
-    ? "grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_320px]"
-    : "grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]";
-
-  const navLinkClass = light
-    ? (n: NavItem) => (n.active ? "font-semibold text-zinc-900" : "text-zinc-500 hover:text-zinc-900")
-    : (n: NavItem) => (n.active ? "font-semibold text-zinc-100" : "text-zinc-400 hover:text-zinc-100");
+  const bodyStyle = light
+    ? "background:#fff;color:#18181b;font-family:system-ui,sans-serif;margin:0;min-height:100vh;"
+    : "background:#000;color:#f4f4f5;font-family:system-ui,sans-serif;margin:0;min-height:100vh;";
+  const navLinkStyle = (n: NavItem) =>
+    light
+      ? `font-size:1.25rem;font-weight:600;padding:0.5rem 0.75rem;display:block;text-decoration:none;color:${n.active ? "#18181b" : "#71717a"};`
+      : `font-size:1.25rem;font-weight:600;padding:0.5rem 0.75rem;display:block;text-decoration:none;color:${n.active ? "#fafafa" : "#a1a1aa"};`;
   const navHtml = nav
-    .map(
-      (n) =>
-        `<a href="${escapeHtml(n.href)}" class="${navLinkClass(n)} no-underline">${escapeHtml(n.label)}</a>`
-    )
-    .join("\n                ");
+    .map((n) => `<a href="${escapeHtml(n.href)}" style="${navLinkStyle(n)}">${escapeHtml(n.label)}</a>`)
+    .join("\n          ");
 
   const backLink =
     headerBackHref != null
-      ? light
-        ? `<a href="${escapeHtml(headerBackHref)}" class="text-zinc-600 no-underline hover:text-zinc-900 shrink-0">←</a>`
-        : `<a href="${escapeHtml(headerBackHref)}" class="text-zinc-300 no-underline hover:text-white shrink-0">←</a>`
+      ? `<a href="${escapeHtml(headerBackHref)}" style="text-decoration:none;color:${light ? "#52525b" : "#d4d4d8"};flex-shrink:0;">←</a>`
       : "";
 
   const headerRight = userEmail
-    ? `<span class="text-xs text-zinc-500 truncate min-w-0">${escapeHtml(userEmail)}</span>`
+    ? `<span style="font-size:0.75rem;color:${light ? "#71717a" : "#71717a"};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(userEmail)}</span>`
     : "";
 
   const rightAside = rightSidebar
     ? light
-      ? `<aside class="hidden lg:block sticky top-0 h-screen py-4">
-        <form method="post" action="/topics" class="rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2">
-          <input type="text" name="topic" placeholder="What do you want to learn today?" maxlength="500" class="w-full bg-transparent outline-none text-sm placeholder:text-zinc-400 text-zinc-900" />
-        </form>
-        <section class="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 mt-4">
-          <h3 class="m-0 text-sm font-semibold text-zinc-900">Tips</h3>
-          <p class="m-0 mt-2 text-sm text-zinc-600 leading-relaxed">Generate threads for a topic, then open one to read replies and ask follow-up questions.</p>
-        </section>
-      </aside>`
-      : `<aside class="hidden lg:block sticky top-0 h-screen py-4">
-        <form method="post" action="/topics" class="rounded-full border border-zinc-800 bg-zinc-950/60 px-4 py-2">
-          <input type="text" name="topic" placeholder="What do you want to learn today?" maxlength="500" class="w-full bg-transparent outline-none text-sm placeholder:text-zinc-500" />
-        </form>
-        <section class="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 mt-4">
-          <h3 class="m-0 text-sm font-semibold">Tips</h3>
-          <p class="m-0 mt-2 text-sm text-zinc-400 leading-relaxed">Generate threads for a topic, then open one to read replies and ask follow-up questions.</p>
-        </section>
-      </aside>`
+      ? `<aside style="padding:1rem 0;"><form method="post" action="/topics" style="border:1px solid #e4e4e7;border-radius:9999px;background:#fafafa;padding:0.5rem 1rem;"><input type="text" name="topic" placeholder="What do you want to learn today?" maxlength="500" style="width:100%;background:transparent;border:0;outline:0;font-size:0.875rem;" /></form><section style="border:1px solid #e4e4e7;border-radius:1rem;background:#fafafa;padding:1rem;margin-top:1rem;"><h3 style="margin:0;font-size:0.875rem;font-weight:600;color:#18181b;">Tips</h3><p style="margin:0.5rem 0 0;font-size:0.875rem;color:#52525b;line-height:1.5;">Generate threads for a topic, then open one to read replies and ask follow-up questions.</p></section></aside>`
+      : `<aside style="padding:1rem 0;"><form method="post" action="/topics" style="border:1px solid #27272a;border-radius:9999px;background:rgba(9,9,11,0.6);padding:0.5rem 1rem;"><input type="text" name="topic" placeholder="What do you want to learn today?" maxlength="500" style="width:100%;background:transparent;border:0;outline:0;font-size:0.875rem;color:inherit;" /></form><section style="border:1px solid #27272a;border-radius:1rem;background:rgba(9,9,11,0.6);padding:1rem;margin-top:1rem;"><h3 style="margin:0;font-size:0.875rem;font-weight:600;">Tips</h3><p style="margin:0.5rem 0 0;font-size:0.875rem;color:#a1a1aa;line-height:1.5;">Generate threads for a topic, then open one to read replies and ask follow-up questions.</p></section></aside>`
     : "";
 
-  const bodyClass = light ? "min-h-screen bg-white text-zinc-900 antialiased" : "min-h-screen bg-black text-zinc-100 antialiased";
-  const style = light
-    ? ":root{color-scheme:light;}body{background:#fff;color:rgb(24 24 27);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}"
-    : ":root{color-scheme:dark;}body{background:#000;color:rgb(244 244 245);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}";
-  const mainBorder = light ? "border-zinc-200" : "border-zinc-800/80";
-  const headerClass = light
-    ? "sticky top-0 z-10 backdrop-blur bg-white/90 border-b border-zinc-200"
-    : "sticky top-0 z-10 backdrop-blur bg-black/70 border-b border-zinc-800/80";
-  const logoClass = light ? "text-zinc-900" : "text-zinc-100";
-  const logoutClass = light ? "text-zinc-500 hover:text-zinc-900" : "text-zinc-400 hover:text-zinc-100";
+  const logoColor = light ? "#18181b" : "#f4f4f5";
+  const headerBorder = light ? "#e4e4e7" : "rgba(39,39,42,0.8)";
+  const mainBorder = light ? "#e4e4e7" : "rgba(39,39,42,0.8)";
+  const logoutColor = light ? "#71717a" : "#a1a1aa";
 
+  const gridCols = rightSidebar ? "260px minmax(0,1fr) 320px" : "260px minmax(0,1fr)";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(title)}</title>
-  <link rel="stylesheet" href="${escapeHtml(LAYOUT_OPTS.cssHref)}" />
-  <style>${style}</style>
-  ${criticalCss ? `<style>${criticalCss}</style>` : ""}
+  <style>body{${bodyStyle}}@media(max-width:768px){.dl-grid{grid-template-columns:1fr !important;}}</style>
 </head>
-<body class="${bodyClass}">
-  <div class="mx-auto w-full max-w-6xl px-4">
-    <div class="grid gap-6 ${gridCols}">
-      <aside class="hidden lg:block sticky top-0 h-screen py-4">
-        <div class="flex h-full flex-col">
-          <a href="/" class="${logoClass} no-underline font-semibold text-lg">DeepLearn</a>
-          <nav class="mt-4 flex flex-col gap-1 text-sm">
+<body style="${bodyStyle}">
+  <div style="max-width:72rem;margin:0 auto;padding:0 1rem;">
+    <div class="dl-grid" style="display:grid;gap:1.5rem;grid-template-columns:${gridCols};">
+      <aside style="padding:1rem 0;">
+        <div style="display:flex;flex-direction:column;height:100%;">
+          <a href="/" style="color:${logoColor};text-decoration:none;font-weight:600;font-size:1.125rem;">DeepLearn</a>
+          <nav style="margin-top:1rem;display:flex;flex-direction:column;gap:0.25rem;">
             ${navHtml}
           </nav>
-          ${userEmail ? `<form method="post" action="/logout" class="mt-4"><button type="submit" class="${logoutClass} text-sm bg-transparent border-0 cursor-pointer p-0">Log out</button></form>` : ""}
+          ${userEmail ? `<form method="post" action="/logout" style="margin-top:1rem;"><button type="submit" style="background:0;border:0;cursor:pointer;padding:0;font-size:1rem;color:${logoutColor};">Log out</button></form>` : ""}
         </div>
       </aside>
-      <main class="min-h-screen lg:border-x ${mainBorder}">
-        <header class="${headerClass}">
-          <div class="px-4 py-3 flex items-center gap-3 min-w-0">
-            ${backLink}
-            <span class="font-semibold text-[1.05rem] min-w-0 truncate flex-1">${escapeHtml(headerTitle)}</span>
-            ${headerRight}
-          </div>
+      <main style="min-height:100vh;border-left:1px solid ${mainBorder};border-right:1px solid ${mainBorder};">
+        <header style="padding:0.75rem 1rem;border-bottom:1px solid ${headerBorder};display:flex;align-items:center;gap:0.75rem;">
+          ${backLink}
+          <span style="font-weight:600;font-size:1.2rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHtml(headerTitle)}</span>
+          ${headerRight}
         </header>
-        <div class="px-4">
+        <div style="padding:1rem;">
           ${body}
         </div>
       </main>
@@ -160,13 +125,11 @@ export function layoutAuth(title: string, body: string, footerHtml: string): str
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(title)} – DeepLearn</title>
-  <link rel="stylesheet" href="${escapeHtml(LAYOUT_OPTS.cssHref)}" />
-  <style>:root{color-scheme:light;}body{background:#fff;color:rgb(24 24 27);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
-  ${criticalCss ? `<style>${criticalCss}</style>` : ""}
+  <style>body{background:#fff;color:#18181b;font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4 bg-white text-zinc-900">
-  <div class="w-full max-w-[360px] rounded-xl border border-zinc-200 bg-zinc-50 p-8 shadow-xl">
-    <h1 class="text-2xl font-semibold m-0 mb-2 text-zinc-900">${escapeHtml(title)}</h1>
+<body style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;background:#fff;color:#18181b;">
+  <div style="width:100%;max-width:360px;border-radius:0.75rem;border:1px solid #e4e4e7;background:#fafafa;padding:2rem;">
+    <h1 style="font-size:1.5rem;font-weight:600;margin:0 0 0.5rem;color:#18181b;">${escapeHtml(title)}</h1>
     ${body}
     ${footerHtml}
   </div>
@@ -182,24 +145,20 @@ export function layoutPublicThread(body: string, headerTitle: string, backHref: 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(headerTitle)} – DeepLearn</title>
-  <link rel="stylesheet" href="${escapeHtml(LAYOUT_OPTS.cssHref)}" />
-  <style>:root{color-scheme:light;}body{background:#fff;color:rgb(24 24 27);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
-  ${criticalCss ? `<style>${criticalCss}</style>` : ""}
+  <style>body{background:#fff;color:#18181b;font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
 </head>
-<body class="min-h-screen bg-white text-zinc-900 antialiased">
-  <div class="mx-auto w-full max-w-6xl px-4">
-    <div class="grid gap-6 grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside class="hidden lg:block sticky top-0 h-screen py-4">
-        <a href="${escapeHtml(backHref)}" class="text-zinc-900 no-underline font-semibold text-lg">DeepLearn</a>
+<body style="background:#fff;color:#18181b;min-height:100vh;">
+  <div style="max-width:72rem;margin:0 auto;padding:0 1rem;">
+    <div style="display:grid;gap:1.5rem;grid-template-columns:260px minmax(0,1fr);">
+      <aside style="padding:1rem 0;">
+        <a href="${escapeHtml(backHref)}" style="color:#18181b;text-decoration:none;font-weight:600;font-size:1.125rem;">DeepLearn</a>
       </aside>
-      <main class="min-h-screen lg:border-x border-zinc-200">
-        <header class="sticky top-0 z-10 backdrop-blur bg-white/90 border-b border-zinc-200">
-          <div class="px-4 py-3 flex items-center gap-3 min-w-0">
-            <a href="${escapeHtml(backHref)}" class="text-zinc-600 no-underline hover:text-zinc-900 shrink-0">←</a>
-            <span class="font-semibold text-[1.05rem] min-w-0 truncate flex-1">${escapeHtml(headerTitle)}</span>
-          </div>
+      <main style="min-height:100vh;border-left:1px solid #e4e4e7;border-right:1px solid #e4e4e7;">
+        <header style="padding:0.75rem 1rem;border-bottom:1px solid #e4e4e7;display:flex;align-items:center;gap:0.75rem;">
+          <a href="${escapeHtml(backHref)}" style="text-decoration:none;color:#52525b;">←</a>
+          <span style="font-weight:600;font-size:1.2rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHtml(headerTitle)}</span>
         </header>
-        <div class="px-4">${body}</div>
+        <div style="padding:1rem;">${body}</div>
       </main>
     </div>
   </div>

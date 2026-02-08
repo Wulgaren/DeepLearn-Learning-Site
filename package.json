@@ -7,7 +7,7 @@
     "dev": "vite",
     "dev:netlify": "bunx netlify dev",
     "build": "tsc -b && vite build",
-    "postbuild": "node scripts/copy-css.mjs && node scripts/inline-critical-css.mjs",
+    "postbuild": "node scripts/copy-css.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
