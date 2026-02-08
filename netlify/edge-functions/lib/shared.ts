@@ -19,6 +19,8 @@ function serializePayload(data: unknown): string {
   }
 }
 
+const MAX_PAYLOAD_CHARS_AI = 1200;
+
 /** Structured log for edge functions. Shows up in Netlify function logs. */
 export function log(fn: string, level: LogLevel, message: string, data?: unknown): void {
   const payload = data !== undefined ? serializePayload(data) : "";
@@ -26,6 +28,28 @@ export function log(fn: string, level: LogLevel, message: string, data?: unknown
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);
+}
+
+/** Log AI request/response for edge. */
+export function logAi(
+  fn: string,
+  opts: {
+    model: string;
+    rawResponse?: string;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+    error?: unknown;
+  }
+): void {
+  const { model, rawResponse, usage, error } = opts;
+  if (error !== undefined) {
+    log(fn, "error", "AI error", { model, error: error instanceof Error ? error.message : String(error) });
+    return;
+  }
+  const truncated =
+    rawResponse != null && rawResponse.length > MAX_PAYLOAD_CHARS_AI
+      ? rawResponse.slice(0, MAX_PAYLOAD_CHARS_AI) + `... (${rawResponse.length} chars)`
+      : rawResponse ?? "(empty)";
+  log(fn, "info", "AI response", { model, usage, raw: truncated });
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

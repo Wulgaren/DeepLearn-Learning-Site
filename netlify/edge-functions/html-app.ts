@@ -64,7 +64,7 @@ export default async function handler(
     const body = await parseFormBody(req);
     const topic = (body.topic ?? "").trim().slice(0, 500);
     if (!topic) return redirect("/topics");
-    const res = await fetch(`${origin}/.netlify/functions/feed-generate`, {
+    const res = await fetch(`${origin}/api/feed-generate`, {
       method: "POST",
       headers: apiHeaders(req),
       body: JSON.stringify({ topic }),
@@ -82,7 +82,7 @@ export default async function handler(
     const body = await parseFormBody(req);
     const tweet = (body.tweet ?? "").trim().slice(0, 2000);
     if (!tweet) return redirect("/thread/new?error=missing");
-    const res = await fetch(`${origin}/.netlify/functions/thread-from-tweet`, {
+    const res = await fetch(`${origin}/api/thread-from-tweet`, {
       method: "POST",
       headers: apiHeaders(req),
       body: JSON.stringify({ tweet }),
@@ -110,7 +110,7 @@ export default async function handler(
       replyIndexRaw !== undefined && replyIndexRaw !== ""
         ? parseInt(replyIndexRaw, 10)
         : null;
-    const res = await fetch(`${origin}/.netlify/functions/thread-ask`, {
+    const res = await fetch(`${origin}/api/thread-ask`, {
       method: "POST",
       headers: apiHeaders(req),
       body: JSON.stringify({
@@ -165,7 +165,7 @@ export default async function handler(
     const [interestsRes, homeThreadsRes, homeTweetsRes] = await Promise.all([
       fetch(`${origin}/api/interests`, { headers: apiHeaders(req) }),
       fetch(`${origin}/api/home-threads`, { headers: apiHeaders(req) }),
-      fetch(`${origin}/.netlify/functions/home-tweets`, {
+      fetch(`${origin}/api/home-tweets`, {
         method: "POST",
         headers: apiHeaders(req),
         body: "{}",

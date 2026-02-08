@@ -6,7 +6,6 @@ import type {
   ThreadSummary,
 } from '../types';
 
-const BASE = '/.netlify/functions';
 const EDGE_BASE = ''; // edge functions at /api/*
 
 async function getAuthHeaders(): Promise<HeadersInit> {
@@ -33,7 +32,7 @@ async function apiFetch<T>(
 }
 
 export async function generateFeed(topic: string): Promise<GenerateFeedResponse> {
-  return apiFetch<GenerateFeedResponse>(`${BASE}/feed-generate`, {
+  return apiFetch<GenerateFeedResponse>(`${EDGE_BASE}/api/feed-generate`, {
     method: 'POST',
     body: JSON.stringify({ topic }),
   });
@@ -54,7 +53,7 @@ export async function askThread(
   question: string,
   options?: { replyContext?: string; replyIndex?: number | null }
 ): Promise<AskThreadResponse> {
-  return apiFetch<AskThreadResponse>(`${BASE}/thread-ask`, {
+  return apiFetch<AskThreadResponse>(`${EDGE_BASE}/api/thread-ask`, {
     method: 'POST',
     body: JSON.stringify({
       threadId,
@@ -77,14 +76,14 @@ export async function setInterests(tags: string[]): Promise<void> {
 }
 
 export async function getHomeTweets(): Promise<{ tweets: string[] }> {
-  return apiFetch<{ tweets: string[] }>(`${BASE}/home-tweets`, {
+  return apiFetch<{ tweets: string[] }>(`${EDGE_BASE}/api/home-tweets`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
 }
 
 export async function createThreadFromTweet(tweet: string): Promise<{ threadId: string }> {
-  return apiFetch<{ threadId: string }>(`${BASE}/thread-from-tweet`, {
+  return apiFetch<{ threadId: string }>(`${EDGE_BASE}/api/thread-from-tweet`, {
     method: 'POST',
     body: JSON.stringify({ tweet }),
   });
