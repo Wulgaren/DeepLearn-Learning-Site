@@ -47,7 +47,7 @@ export default async function handler(req: Request, _context: Context): Promise<
     .from("threads")
     .select("id, topic_id, main_post, replies, created_at")
     .in("topic_id", topicIds)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false });
 
   if (threadsError) {
     log(FN, "error", "Threads error", threadsError);

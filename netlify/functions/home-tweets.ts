@@ -166,5 +166,5 @@ Rules: Use single quotes inside strings if needed; avoid unescaped double quotes
   }
 
   log(FN, 'info', 'success', { tweetsCount: merged.length });
-  return jsonResponse({ tweets: merged });
+  return jsonResponse({ tweets: merged.slice().reverse() });
 }

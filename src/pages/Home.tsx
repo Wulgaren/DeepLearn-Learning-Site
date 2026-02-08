@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInterests, setInterests, getHomeTweets, createThreadFromTweet, getHomeThreads } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
+import { formatThreadDate } from '../lib/format';
 import { useCopyLink } from '../hooks/useCopyLink';
 import CopyLinkToast from '../components/CopyLinkToast';
 import PostRow from '../components/PostRow';
@@ -198,7 +199,7 @@ export default function Home() {
                 as="button"
                 onClick={() => handleOpenThread(thread.id)}
                 label="Thread"
-                meta={`${Array.isArray(thread.replies) ? thread.replies.length : 0} replies`}
+                meta={`${Array.isArray(thread.replies) ? thread.replies.length : 0} replies · ${formatThreadDate(thread.created_at)}`}
                 body={thread.main_post}
                 lineClamp={2}
                 actions={

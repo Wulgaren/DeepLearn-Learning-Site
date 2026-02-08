@@ -135,7 +135,7 @@ export default function Layout() {
                 onClick={() => setMobileMenuOpen(false)}
               />
               <aside
-                className="fixed left-0 top-0 z-50 h-full w-[260px] max-w-[85vw] bg-black border-r border-zinc-800/80 py-4 flex flex-col lg:hidden"
+                className="fixed right-0 top-0 z-50 h-full w-[260px] max-w-[85vw] bg-black border-l border-zinc-800/80 py-4 flex flex-col lg:hidden transition-transform duration-200 ease-out translate-x-0"
                 aria-label="Main menu"
               >
                 <div className="flex h-full flex-col px-2">
