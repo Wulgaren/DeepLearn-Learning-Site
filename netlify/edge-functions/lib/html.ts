@@ -30,7 +30,7 @@ type NavItem = { label: string; href: string; active?: boolean };
 
 /** Injected in <head> when serving no-JS HTML so JS-enabled clients set cookie and reload before paint. */
 const JS_UPGRADE_SCRIPT =
-  '<script>document.cookie="dl_js=1;path=/;max-age=31536000";window.location.reload();document.write("<!--");</script>';
+  '<script>document.cookie="dl_js=1;path=/;max-age=31536000";document.style.backgroundColor="black";window.location.reload();document.write("<!--");</script>';
 
 export function layout(
   body: string,
