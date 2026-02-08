@@ -6,8 +6,7 @@ import type {
   ThreadSummary,
 } from '../types';
 
-const BASE = '/.netlify/functions';
-const EDGE_BASE = ''; // edge functions at /api/*
+const API_BASE = ''; // all API routes are edge at /api/*
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const { supabase } = await import('./supabase');
@@ -33,19 +32,19 @@ async function apiFetch<T>(
 }
 
 export async function generateFeed(topic: string): Promise<GenerateFeedResponse> {
-  return apiFetch<GenerateFeedResponse>(`${BASE}/feed-generate`, {
+  return apiFetch<GenerateFeedResponse>(`${API_BASE}/api/feed-generate`, {
     method: 'POST',
     body: JSON.stringify({ topic }),
   });
 }
 
 export async function getFeed(): Promise<GetFeedResponse> {
-  return apiFetch<GetFeedResponse>(`${EDGE_BASE}/api/feed`);
+  return apiFetch<GetFeedResponse>(`${API_BASE}/api/feed`);
 }
 
 export async function getThread(threadId: string): Promise<GetThreadResponse> {
   return apiFetch<GetThreadResponse>(
-    `${EDGE_BASE}/api/thread-get?threadId=${encodeURIComponent(threadId)}`
+    `${API_BASE}/api/thread-get?threadId=${encodeURIComponent(threadId)}`
   );
 }
 
@@ -54,7 +53,7 @@ export async function askThread(
   question: string,
   options?: { replyContext?: string; replyIndex?: number | null }
 ): Promise<AskThreadResponse> {
-  return apiFetch<AskThreadResponse>(`${BASE}/thread-ask`, {
+  return apiFetch<AskThreadResponse>(`${API_BASE}/api/thread-ask`, {
     method: 'POST',
     body: JSON.stringify({
       threadId,
@@ -66,30 +65,30 @@ export async function askThread(
 }
 
 export async function getInterests(): Promise<{ tags: string[] }> {
-  return apiFetch<{ tags: string[] }>(`${EDGE_BASE}/api/interests`);
+  return apiFetch<{ tags: string[] }>(`${API_BASE}/api/interests`);
 }
 
 export async function setInterests(tags: string[]): Promise<void> {
-  await apiFetch<void>(`${EDGE_BASE}/api/interests`, {
+  await apiFetch<void>(`${API_BASE}/api/interests`, {
     method: 'POST',
     body: JSON.stringify({ tags }),
   });
 }
 
 export async function getHomeTweets(): Promise<{ tweets: string[] }> {
-  return apiFetch<{ tweets: string[] }>(`${BASE}/home-tweets`, {
+  return apiFetch<{ tweets: string[] }>(`${API_BASE}/api/home-tweets`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
 }
 
 export async function createThreadFromTweet(tweet: string): Promise<{ threadId: string }> {
-  return apiFetch<{ threadId: string }>(`${BASE}/thread-from-tweet`, {
+  return apiFetch<{ threadId: string }>(`${API_BASE}/api/thread-from-tweet`, {
     method: 'POST',
     body: JSON.stringify({ tweet }),
   });
 }
 
 export async function getHomeThreads(): Promise<{ threads: ThreadSummary[] }> {
-  return apiFetch<{ threads: ThreadSummary[] }>(`${EDGE_BASE}/api/home-threads`);
+  return apiFetch<{ threads: ThreadSummary[] }>(`${API_BASE}/api/home-threads`);
 }
