@@ -1,7 +1,5 @@
 import type { Config, Context } from "@netlify/edge-functions";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import Groq from "https://esm.sh/groq-sdk@0.5.0";
-import { jsonrepair } from "https://esm.sh/jsonrepair@3.13.2";
 import {
   corsHeaders,
   getUserId,
@@ -10,16 +8,41 @@ import {
   logAi,
   sanitizeForPrompt,
   sanitizeForDb,
+  groqCompletion,
+  classifyNeedsWebGrounding,
+  GROQ_COMPOUND_MODEL,
 } from "./lib/shared.ts";
-import { classifyNeedsWebGrounding, GROQ_COMPOUND_MODEL } from "./lib/ai.ts";
 
 const FN = "thread-from-tweet";
+
 const REPLIES_COUNT = 5;
 
-export default async function handler(
-  req: Request,
-  _context: Context
-): Promise<Response> {
+function parseReplies(text: string): string[] {
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "").trim();
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
+  cleaned = cleaned.replace(/,(\s*[}\]])/g, "$1");
+  try {
+    const parsed = JSON.parse(cleaned) as { replies?: unknown };
+    const arr = Array.isArray(parsed?.replies) ? parsed.replies : [];
+    return arr.filter((x): x is string => typeof x === "string").slice(0, REPLIES_COUNT);
+  } catch {
+    try {
+      const repaired = cleaned.replace(/,(\s*[}\]])/g, "$1");
+      const parsed = JSON.parse(repaired) as { replies?: unknown };
+      const arr = Array.isArray(parsed?.replies) ? parsed.replies : [];
+      return arr.filter((x): x is string => typeof x === "string").slice(0, REPLIES_COUNT);
+    } catch {
+      return [];
+    }
+  }
+}
+
+export default async function handler(req: Request, _context: Context): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -89,14 +112,12 @@ export default async function handler(
     return jsonResponse({ error: "Failed to create thread" }, 500);
   }
 
-  const groq = new Groq({ apiKey: groqApiKey });
-
   const classifierPrompt = `Does expanding this tweet into an informative thread require external or up-to-date information beyond general knowledge? (e.g. recent events, current stats, specific names/dates.) Reply with only YES or NO.
 
 ---TWEET---
 ${tweet}
 ---`;
-  const useWebGrounding = await classifyNeedsWebGrounding(groq, classifierPrompt);
+  const useWebGrounding = await classifyNeedsWebGrounding(groqApiKey, classifierPrompt);
   const model = useWebGrounding ? GROQ_COMPOUND_MODEL : "openai/gpt-oss-120b";
   log(FN, "info", "request", { model, tweetLen: tweet.length });
 
@@ -113,23 +134,14 @@ Rules: One JSON object only. No code fences. No newlines inside strings. Use sin
 
   let raw: string;
   try {
-    const completion = await groq.chat.completions.create({
+    const result = await groqCompletion(groqApiKey, {
       model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
       max_tokens: 2048,
     });
-    raw = completion.choices[0]?.message?.content?.trim() ?? "";
-    logAi(FN, {
-      model,
-      rawResponse: raw,
-      usage: completion.usage
-        ? {
-            prompt_tokens: completion.usage.prompt_tokens,
-            completion_tokens: completion.usage.completion_tokens,
-          }
-        : undefined,
-    });
+    raw = result.content;
+    logAi(FN, { model, rawResponse: raw, usage: result.usage });
   } catch (err) {
     logAi(FN, { model, error: err });
     return jsonResponse({ error: "AI service error" }, 502);
@@ -137,68 +149,23 @@ Rules: One JSON object only. No code fences. No newlines inside strings. Use sin
 
   if (!raw) {
     log(FN, "error", "AI returned empty response", { model });
-    return jsonResponse({
-      error: "AI returned an empty response. Please try again.",
-    }, 502);
-  }
-
-  function parseReplies(text: string): string[] {
-    let cleaned = text.trim();
-    cleaned = cleaned
-      .replace(/^```(?:json)?\s*\n?/i, "")
-      .replace(/\n?\s*```\s*$/i, "")
-      .trim();
-    const firstBrace = cleaned.indexOf("{");
-    const lastBrace = cleaned.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
-    }
-    cleaned = cleaned.replace(/,(\s*[}\]])/g, "$1");
-    try {
-      const parsed = JSON.parse(cleaned) as { replies?: unknown };
-      const arr = Array.isArray(parsed?.replies) ? parsed.replies : [];
-      return arr
-        .filter((x): x is string => typeof x === "string")
-        .slice(0, REPLIES_COUNT);
-    } catch {
-      try {
-        const repaired = jsonrepair(cleaned);
-        const parsed = JSON.parse(repaired) as { replies?: unknown };
-        const arr = Array.isArray(parsed?.replies) ? parsed.replies : [];
-        return arr
-          .filter((x): x is string => typeof x === "string")
-          .slice(0, REPLIES_COUNT);
-      } catch {
-        return [];
-      }
-    }
+    return jsonResponse({ error: "AI returned an empty response. Please try again." }, 502);
   }
 
   const replies = parseReplies(raw);
   if (replies.length === 0) {
-    log(FN, "error", "AI response could not be parsed or had no replies", {
-      model,
-      rawPreview: raw.slice(0, 200),
-    });
-    return jsonResponse({
-      error: "AI could not generate replies. Please try again.",
-    }, 502);
+    log(FN, "error", "AI response could not be parsed or had no replies", { model, rawPreview: raw.slice(0, 200) });
+    return jsonResponse({ error: "AI could not generate replies. Please try again." }, 502);
   }
 
-  const { error: updateError } = await supabase
-    .from("threads")
-    .update({ replies })
-    .eq("id", threadRow.id);
+  const { error: updateError } = await supabase.from("threads").update({ replies }).eq("id", threadRow.id);
 
   if (updateError) {
     log(FN, "error", "Thread update error", updateError);
     return jsonResponse({ error: "Failed to save replies" }, 500);
   }
 
-  log(FN, "info", "success", {
-    threadId: threadRow.id,
-    repliesCount: replies.length,
-  });
+  log(FN, "info", "success", { threadId: threadRow.id, repliesCount: replies.length });
   return jsonResponse({ threadId: threadRow.id });
 }
 

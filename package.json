@@ -14,8 +14,6 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.94.0",
     "@tanstack/react-query": "^5.90.20",
-    "groq-sdk": "^0.37.0",
-    "jsonrepair": "^3.13.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0"
@@ -23,7 +21,6 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@netlify/edge-functions": "^3.0.3",
-    "@netlify/functions": "^5.1.2",
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",

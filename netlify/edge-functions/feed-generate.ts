@@ -1,7 +1,5 @@
 import type { Config, Context } from "@netlify/edge-functions";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import Groq from "https://esm.sh/groq-sdk@0.5.0";
-import { jsonrepair } from "https://esm.sh/jsonrepair@3.13.2";
 import {
   corsHeaders,
   getUserId,
@@ -10,17 +8,38 @@ import {
   logAi,
   sanitizeForPrompt,
   sanitizeForDb,
+  groqCompletion,
+  classifyNeedsWebGrounding,
+  GROQ_COMPOUND_MODEL,
 } from "./lib/shared.ts";
-import { classifyNeedsWebGrounding, GROQ_COMPOUND_MODEL } from "./lib/ai.ts";
 
 const FN = "feed-generate";
+
 const THREADS_COUNT = 6;
 const REPLIES_PER_THREAD = 5;
 
-export default async function handler(
-  req: Request,
-  _context: Context
-): Promise<Response> {
+function extractAndParse(rawText: string): { threads?: Array<{ main?: string; replies?: string[] }> } | null {
+  let cleaned = rawText.trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "").trim();
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
+  cleaned = cleaned.replace(/,(\s*[}\]])/g, "$1");
+  try {
+    return JSON.parse(cleaned) as { threads?: Array<{ main?: string; replies?: string[] }> };
+  } catch {
+    try {
+      const repaired = cleaned.replace(/,(\s*[}\]])/g, "$1");
+      return JSON.parse(repaired) as { threads?: Array<{ main?: string; replies?: string[] }> };
+    } catch {
+      return null;
+    }
+  }
+}
+
+export default async function handler(req: Request, _context: Context): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -53,14 +72,13 @@ export default async function handler(
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const groq = new Groq({ apiKey: groqApiKey });
 
   const classifierPrompt = `Does generating informative, accurate content for the following topic require external or up-to-date information beyond general knowledge? (e.g. recent events, current stats, breaking news.) Reply with only YES or NO.
 
 ---TOPIC---
 ${topic}
 ---`;
-  const useWebGrounding = await classifyNeedsWebGrounding(groq, classifierPrompt);
+  const useWebGrounding = await classifyNeedsWebGrounding(groqApiKey, classifierPrompt);
   const model = useWebGrounding ? GROQ_COMPOUND_MODEL : "openai/gpt-oss-120b";
   log(FN, "info", "request", { model, topic });
 
@@ -84,64 +102,22 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
 
   let raw: string;
   try {
-    const completion = await groq.chat.completions.create({
+    const result = await groqCompletion(groqApiKey, {
       model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
       max_tokens: 8192,
     });
-    raw = completion.choices[0]?.message?.content?.trim() ?? "";
-    logAi(FN, {
-      model,
-      rawResponse: raw,
-      usage: completion.usage
-        ? {
-            prompt_tokens: completion.usage.prompt_tokens,
-            completion_tokens: completion.usage.completion_tokens,
-          }
-        : undefined,
-    });
+    raw = result.content;
+    logAi(FN, { model, rawResponse: raw, usage: result.usage });
   } catch (err) {
     logAi(FN, { model, error: err });
     return jsonResponse({ error: "AI service error" }, 502);
   }
 
-  function extractAndParse(
-    rawText: string
-  ): { threads?: Array<{ main?: string; replies?: string[] }> } | null {
-    let cleaned = rawText.trim();
-    cleaned = cleaned
-      .replace(/^```(?:json)?\s*\n?/i, "")
-      .replace(/\n?\s*```\s*$/i, "")
-      .trim();
-    const firstBrace = cleaned.indexOf("{");
-    const lastBrace = cleaned.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
-    }
-    cleaned = cleaned.replace(/,(\s*[}\]])/g, "$1");
-    try {
-      return JSON.parse(cleaned) as {
-        threads?: Array<{ main?: string; replies?: string[] }>;
-      };
-    } catch {
-      try {
-        const repaired = jsonrepair(cleaned);
-        return JSON.parse(repaired) as {
-          threads?: Array<{ main?: string; replies?: string[] }>;
-        };
-      } catch {
-        return null;
-      }
-    }
-  }
-
   const parsed = extractAndParse(raw);
   if (!parsed) {
-    log(FN, "error", "Failed to parse AI response", {
-      model,
-      rawPreview: raw.slice(0, 500),
-    });
+    log(FN, "error", "Failed to parse AI response", { model, rawPreview: raw.slice(0, 500) });
     return jsonResponse({ error: "Invalid AI response format" }, 502);
   }
 
@@ -178,10 +154,7 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
     return jsonResponse({ error: "Failed to save threads" }, 500);
   }
 
-  log(FN, "info", "success", {
-    topicId: topicRow.id,
-    threadIds: insertedThreads.map((t) => t.id),
-  });
+  log(FN, "info", "success", { topicId: topicRow.id, threadIds: insertedThreads.map((t) => t.id) });
   return jsonResponse({
     topicId: topicRow.id,
     threadIds: insertedThreads.map((t) => t.id),

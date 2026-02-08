@@ -19,8 +19,6 @@ function serializePayload(data: unknown): string {
   }
 }
 
-const MAX_PAYLOAD_CHARS_AI = 1200;
-
 /** Structured log for edge functions. Shows up in Netlify function logs. */
 export function log(fn: string, level: LogLevel, message: string, data?: unknown): void {
   const payload = data !== undefined ? serializePayload(data) : "";
@@ -28,28 +26,6 @@ export function log(fn: string, level: LogLevel, message: string, data?: unknown
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);
-}
-
-/** Log AI request/response for edge. */
-export function logAi(
-  fn: string,
-  opts: {
-    model: string;
-    rawResponse?: string;
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
-    error?: unknown;
-  }
-): void {
-  const { model, rawResponse, usage, error } = opts;
-  if (error !== undefined) {
-    log(fn, "error", "AI error", { model, error: error instanceof Error ? error.message : String(error) });
-    return;
-  }
-  const truncated =
-    rawResponse != null && rawResponse.length > MAX_PAYLOAD_CHARS_AI
-      ? rawResponse.slice(0, MAX_PAYLOAD_CHARS_AI) + `... (${rawResponse.length} chars)`
-      : rawResponse ?? "(empty)";
-  log(fn, "info", "AI response", { model, usage, raw: truncated });
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -122,4 +98,102 @@ export function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json", ...corsHeaders },
   });
+}
+
+/** Log AI request/response: model, truncated raw response, usage, or error. */
+export function logAi(
+  fn: string,
+  opts: {
+    model: string;
+    rawResponse?: string;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+    error?: unknown;
+  }
+): void {
+  const { model, rawResponse, usage, error } = opts;
+  const parts: string[] = [`model=${model}`];
+  if (usage?.prompt_tokens != null) parts.push(`prompt_tokens=${usage.prompt_tokens}`);
+  if (usage?.completion_tokens != null) parts.push(`completion_tokens=${usage.completion_tokens}`);
+  if (error !== undefined) {
+    log(fn, "error", "AI error", { model, error: error instanceof Error ? error.message : String(error) });
+    return;
+  }
+  const truncated = rawResponse
+    ? rawResponse.length <= MAX_PAYLOAD_CHARS
+      ? rawResponse
+      : rawResponse.slice(0, MAX_PAYLOAD_CHARS) + `... (${rawResponse.length} chars)`
+    : "(empty)";
+  log(fn, "info", "AI response", { model, ...(parts.length > 1 ? { usage: parts.slice(1).join(", ") } : {}), raw: truncated });
+}
+
+const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
+const CLASSIFIER_MODEL = "llama-3.1-8b-instant";
+export const GROQ_COMPOUND_MODEL = "groq/compound";
+const CLASSIFIER_MAX_TOKENS = 10;
+
+export interface GroqMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+export interface GroqCompletionOptions {
+  model: string;
+  messages: GroqMessage[];
+  temperature?: number;
+  max_tokens?: number;
+}
+
+/** Call Groq chat completions API via fetch. */
+export async function groqCompletion(
+  apiKey: string,
+  opts: GroqCompletionOptions
+): Promise<{ content: string; usage?: { prompt_tokens?: number; completion_tokens?: number } }> {
+  const res = await fetch(GROQ_API, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: opts.model,
+      messages: opts.messages,
+      temperature: opts.temperature ?? 0,
+      max_tokens: opts.max_tokens ?? 1024,
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Groq API ${res.status}: ${errText.slice(0, 200)}`);
+  }
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+  const content = data.choices?.[0]?.message?.content?.trim() ?? "";
+  return { content, usage: data.usage };
+}
+
+/** Returns true if the classifier reply starts with YES (use web grounding). */
+export async function classifyNeedsWebGrounding(apiKey: string, prompt: string): Promise<boolean> {
+  try {
+    const { content } = await groqCompletion(apiKey, {
+      model: CLASSIFIER_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0,
+      max_tokens: CLASSIFIER_MAX_TOKENS,
+    });
+    const text = content.trim().toUpperCase();
+    const useWeb = text.startsWith("YES");
+    log("classifier", "info", "needsWebGrounding", {
+      model: CLASSIFIER_MODEL,
+      response: text.slice(0, 20),
+      useWeb,
+    });
+    return useWeb;
+  } catch (err) {
+    log("classifier", "warn", "Classification failed, defaulting to no web", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return false;
+  }
 }

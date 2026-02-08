@@ -1,6 +1,5 @@
 import type { Config, Context } from "@netlify/edge-functions";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import Groq from "https://esm.sh/groq-sdk@0.5.0";
 import {
   corsHeaders,
   getUserId,
@@ -10,15 +9,14 @@ import {
   validateUuid,
   sanitizeForPrompt,
   sanitizeForDb,
+  groqCompletion,
+  classifyNeedsWebGrounding,
+  GROQ_COMPOUND_MODEL,
 } from "./lib/shared.ts";
-import { classifyNeedsWebGrounding, GROQ_COMPOUND_MODEL } from "./lib/ai.ts";
 
 const FN = "thread-ask";
 
-export default async function handler(
-  req: Request,
-  _context: Context
-): Promise<Response> {
+export default async function handler(req: Request, _context: Context): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -31,12 +29,7 @@ export default async function handler(
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  let body: {
-    threadId?: string;
-    question?: string;
-    replyContext?: string;
-    replyIndex?: number | null;
-  };
+  let body: { threadId?: string; question?: string; replyContext?: string; replyIndex?: number | null };
   try {
     body = req.body ? await req.json() : {};
   } catch {
@@ -46,21 +39,14 @@ export default async function handler(
   if (!validateUuid(threadId)) {
     return jsonResponse({ error: "Invalid thread" }, 400);
   }
-  const rawQuestion =
-    typeof body.question === "string" ? body.question.trim() : "";
+  const rawQuestion = typeof body.question === "string" ? body.question.trim() : "";
   const question = sanitizeForPrompt(rawQuestion, 2000);
   if (!question) {
     return jsonResponse({ error: "Missing or invalid question" }, 400);
   }
-  const rawReplyContext =
-    typeof body.replyContext === "string" ? body.replyContext.trim() : undefined;
-  const replyContext = rawReplyContext
-    ? sanitizeForPrompt(rawReplyContext, 2000)
-    : undefined;
-  const replyIndex =
-    typeof body.replyIndex === "number" && body.replyIndex >= 0
-      ? body.replyIndex
-      : null;
+  const rawReplyContext = typeof body.replyContext === "string" ? body.replyContext.trim() : undefined;
+  const replyContext = rawReplyContext ? sanitizeForPrompt(rawReplyContext, 2000) : undefined;
+  const replyIndex = typeof body.replyIndex === "number" && body.replyIndex >= 0 ? body.replyIndex : null;
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -81,26 +67,18 @@ export default async function handler(
     return jsonResponse({ error: "Thread not found" }, 404);
   }
 
-  const { data: topic } = await supabase
-    .from("topics")
-    .select("id, user_id")
-    .eq("id", thread.topic_id)
-    .single();
+  const { data: topic } = await supabase.from("topics").select("id, user_id").eq("id", thread.topic_id).single();
   if (!topic || topic.user_id !== userId) {
     return jsonResponse({ error: "Forbidden" }, 403);
   }
 
-  const repliesRaw = (thread.replies ?? []) as Array<
-    string | { type?: string; content?: string }
-  >;
+  const repliesRaw = (thread.replies ?? []) as Array<string | { type?: string; content?: string }>;
   const mainSafe = sanitizeForPrompt(String(thread.main_post ?? ""), 4000);
   const replyLines = repliesRaw.map((r, i) => {
     const text = typeof r === "string" ? r : String(r?.content ?? "");
     return `Reply ${i + 1}: ${sanitizeForPrompt(text, 4000)}`;
   });
   const context = ["Thread (main): " + mainSafe, ...replyLines].join("\n");
-
-  const groq = new Groq({ apiKey: groqApiKey });
 
   const contextNote = replyContext
     ? `\nThe user is asking specifically about this part of the thread: «${replyContext}»\nAnswer in that context.\n\n`
@@ -124,33 +102,20 @@ ${context.slice(0, 2000)}
 ---QUESTION---
 ${question}
 ---`;
-  const useWebGrounding = await classifyNeedsWebGrounding(groq, classifierPrompt);
+  const useWebGrounding = await classifyNeedsWebGrounding(groqApiKey, classifierPrompt);
   const model = useWebGrounding ? GROQ_COMPOUND_MODEL : "openai/gpt-oss-120b";
-  log(FN, "info", "request", {
-    threadId,
-    model,
-    questionLen: question.length,
-  });
+  log(FN, "info", "request", { threadId, model, questionLen: question.length });
 
   let answer: string;
   try {
-    const completion = await groq.chat.completions.create({
+    const result = await groqCompletion(groqApiKey, {
       model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.6,
       max_tokens: 400,
     });
-    answer = (completion.choices[0]?.message?.content ?? "").trim();
-    logAi(FN, {
-      model,
-      rawResponse: answer,
-      usage: completion.usage
-        ? {
-            prompt_tokens: completion.usage.prompt_tokens,
-            completion_tokens: completion.usage.completion_tokens,
-          }
-        : undefined,
-    });
+    answer = (result.content ?? "").trim();
+    logAi(FN, { model, rawResponse: answer, usage: result.usage });
   } catch (err) {
     logAi(FN, { model, error: err });
     return jsonResponse({ error: "AI service error" }, 502);
@@ -158,9 +123,7 @@ ${question}
 
   if (!answer || answer.length < 2) {
     log(FN, "error", "AI returned empty or invalid reply", { model });
-    return jsonResponse({
-      error: "AI returned an empty response. Please try again.",
-    }, 502);
+    return jsonResponse({ error: "AI returned an empty response. Please try again." }, 502);
   }
 
   const insertAt = replyIndex === null ? repliesRaw.length : replyIndex + 1;
@@ -173,10 +136,7 @@ ${question}
     ...repliesRaw.slice(insertAt),
   ];
 
-  const { error: updateError } = await supabase
-    .from("threads")
-    .update({ replies: newReplies })
-    .eq("id", threadId);
+  const { error: updateError } = await supabase.from("threads").update({ replies: newReplies }).eq("id", threadId);
 
   if (updateError) {
     log(FN, "error", "Thread update error", updateError);

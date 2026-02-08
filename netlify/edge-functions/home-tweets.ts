@@ -1,7 +1,5 @@
 import type { Config, Context } from "@netlify/edge-functions";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import Groq from "https://esm.sh/groq-sdk@0.5.0";
-import { jsonrepair } from "https://esm.sh/jsonrepair@3.13.2";
 import {
   corsHeaders,
   getUserId,
@@ -9,16 +7,38 @@ import {
   log,
   logAi,
   sanitizeForPrompt,
+  groqCompletion,
 } from "./lib/shared.ts";
 
 const FN = "home-tweets";
+
 const MAX_TWEETS = 10;
 const MAX_ALREADY_COVERED_IN_PROMPT = 30;
 
-export default async function handler(
-  req: Request,
-  _context: Context
-): Promise<Response> {
+function parseTweets(text: string): string[] {
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "").trim();
+  const firstBracket = cleaned.indexOf("[");
+  const lastBracket = cleaned.lastIndexOf("]");
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    cleaned = cleaned.slice(firstBracket, lastBracket + 1);
+  }
+  cleaned = cleaned.replace(/,(\s*[}\]])/g, "$1");
+  try {
+    const arr = JSON.parse(cleaned);
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string").slice(0, MAX_TWEETS) : [];
+  } catch {
+    try {
+      const repaired = cleaned.replace(/,(\s*[}\]])/g, "$1");
+      const arr = JSON.parse(repaired);
+      return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string").slice(0, MAX_TWEETS) : [];
+    } catch {
+      return [];
+    }
+  }
+}
+
+export default async function handler(req: Request, _context: Context): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -76,11 +96,9 @@ export default async function handler(
       .select("main_post")
       .eq("topic_id", homeTopic.id);
     if (threads?.length) {
-      for (const t of threads) {
-        if (typeof t.main_post === "string" && t.main_post.trim()) {
-          threadMainPosts.push(t.main_post.trim());
-        }
-      }
+      threads.forEach((t) => {
+        if (typeof t.main_post === "string" && t.main_post.trim()) threadMainPosts.push(t.main_post.trim());
+      });
     }
   }
 
@@ -90,19 +108,17 @@ export default async function handler(
     .eq("user_id", userId)
     .maybeSingle();
 
-  const storedSuggestions = Array.isArray(suggestionsRow?.suggestions)
-    ? suggestionsRow.suggestions
-    : [];
-  const alreadyCovered = Array.from(
-    new Set([...threadMainPosts, ...storedSuggestions].filter(Boolean))
-  ).slice(0, MAX_ALREADY_COVERED_IN_PROMPT);
+  const storedSuggestions = Array.isArray(suggestionsRow?.suggestions) ? suggestionsRow.suggestions : [];
+  const alreadyCovered = Array.from(new Set([...threadMainPosts, ...storedSuggestions].filter(Boolean))).slice(
+    0,
+    MAX_ALREADY_COVERED_IN_PROMPT
+  );
 
   const alreadyCoveredBlock =
     alreadyCovered.length > 0
       ? `\n\nIMPORTANT: The user has already been shown or has opened threads for these topics. Do NOT suggest anything similar or duplicate. Generate only NEW, different ideas:\n---ALREADY COVERED---\n${alreadyCovered.map((s) => sanitizeForPrompt(String(s).replace(/\n/g, " "), 200)).join("\n")}\n---END---\n`
       : "";
 
-  const groq = new Groq({ apiKey: groqApiKey });
   log(FN, "info", "request", { interestsCount: interests.length });
 
   const prompt = `---USER INTERESTS---
@@ -120,23 +136,14 @@ Rules: Use single quotes inside strings if needed; avoid unescaped double quotes
   const model = "openai/gpt-oss-120b";
   let raw: string;
   try {
-    const completion = await groq.chat.completions.create({
+    const result = await groqCompletion(groqApiKey, {
       model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.8,
       max_tokens: 2048,
     });
-    raw = completion.choices[0]?.message?.content?.trim() ?? "";
-    logAi(FN, {
-      model,
-      rawResponse: raw,
-      usage: completion.usage
-        ? {
-            prompt_tokens: completion.usage.prompt_tokens,
-            completion_tokens: completion.usage.completion_tokens,
-          }
-        : undefined,
-    });
+    raw = result.content;
+    logAi(FN, { model, rawResponse: raw, usage: result.usage });
   } catch (err) {
     logAi(FN, { model, error: err });
     return jsonResponse({ error: "AI service error" }, 502);
@@ -144,49 +151,16 @@ Rules: Use single quotes inside strings if needed; avoid unescaped double quotes
 
   if (!raw) {
     log(FN, "error", "AI returned empty response", { model });
-    return jsonResponse({
-      error: "AI returned an empty response. Please try again.",
-    }, 502);
-  }
-
-  function parseTweets(text: string): string[] {
-    let cleaned = text.trim();
-    cleaned = cleaned
-      .replace(/^```(?:json)?\s*\n?/i, "")
-      .replace(/\n?\s*```\s*$/i, "")
-      .trim();
-    const firstBracket = cleaned.indexOf("[");
-    const lastBracket = cleaned.lastIndexOf("]");
-    if (firstBracket !== -1 && lastBracket > firstBracket) {
-      cleaned = cleaned.slice(firstBracket, lastBracket + 1);
-    }
-    cleaned = cleaned.replace(/,(\s*[}\]])/g, "$1");
-    try {
-      const arr = JSON.parse(cleaned);
-      return Array.isArray(arr)
-        ? arr.filter((x): x is string => typeof x === "string").slice(0, MAX_TWEETS)
-        : [];
-    } catch {
-      try {
-        const repaired = jsonrepair(cleaned);
-        const arr = JSON.parse(repaired);
-        return Array.isArray(arr)
-          ? arr.filter((x): x is string => typeof x === "string").slice(0, MAX_TWEETS)
-          : [];
-      } catch {
-        return [];
-      }
-    }
+    return jsonResponse({ error: "AI returned an empty response. Please try again." }, 502);
   }
 
   const newTweets = parseTweets(raw);
-  const merged = Array.from(
-    new Set([...storedSuggestions, ...newTweets].filter(Boolean))
-  );
+  const merged = Array.from(new Set([...storedSuggestions, ...newTweets].filter(Boolean)));
 
-  const { error: upsertError } = await supabase
-    .from("user_home_suggestions")
-    .upsert({ user_id: userId, suggestions: merged }, { onConflict: "user_id" });
+  const { error: upsertError } = await supabase.from("user_home_suggestions").upsert(
+    { user_id: userId, suggestions: merged },
+    { onConflict: "user_id" }
+  );
 
   if (upsertError) {
     log(FN, "error", "Home suggestions upsert error", upsertError);
