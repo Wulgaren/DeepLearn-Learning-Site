@@ -197,34 +197,34 @@ export default async function handler(
         ? tweets
             .map(
               (tweet) =>
-                `<div class="py-4 border-b border-zinc-800/80"><a href="/thread/new?tweet=${encodeURIComponent(tweet)}" class="no-underline text-zinc-100 hover:underline block"><p class="m-0 text-sm text-zinc-500">For you</p><p class="m-0 mt-1 text-[1.05rem] leading-relaxed line-clamp-2">${escapeHtml(tweet)}</p></a></div>`
+                `<div class="py-4 border-b border-zinc-800/80"><a href="/thread/new?tweet=${encodeURIComponent(tweet)}" class="no-underline text-zinc-100 hover:underline block"><p class="m-0 text-[1.05rem] leading-relaxed line-clamp-2 text-zinc-200">${escapeHtml(tweet)}</p></a></div>`
             )
             .join("")
         : tags.length === 0
-          ? `<p class="text-zinc-500 text-sm py-6">Add interests below to get personalized tweet ideas.</p>`
-          : `<p class="text-zinc-500 text-sm py-6">No tweet ideas right now. Try adding more interests.</p>`;
+          ? `<p class="text-zinc-500 text-sm py-6">Add interests below to see personalized tweet ideas here.</p>`
+          : `<p class="text-zinc-500 text-sm py-6">No ideas right now. Try adding more interests.</p>`;
 
     const homeThreadsHtml =
       homeThreads.length > 0
         ? homeThreads
             .map(
               (t) =>
-                `<div class="py-4 border-b border-zinc-800/80"><a href="/thread/${t.id}" class="no-underline text-zinc-100 hover:underline block"><p class="m-0 text-sm text-zinc-500">Thread · ${formatThreadDate(t.created_at)}</p><p class="m-0 mt-1 text-[1.05rem] leading-relaxed line-clamp-2">${escapeHtml(t.main_post)}</p></a><a href="/thread/${t.id}" class="text-zinc-500 hover:text-zinc-300 text-sm">Share</a></div>`
+                `<div class="py-4 border-b border-zinc-800/80"><a href="/thread/${t.id}" class="no-underline text-zinc-100 hover:underline block"><p class="m-0 text-sm text-zinc-500">Thread · ${formatThreadDate(t.created_at)}</p><p class="m-0 mt-1 text-[1.05rem] leading-relaxed line-clamp-2">${escapeHtml(t.main_post)}</p></a></div>`
             )
             .join("")
         : `<p class="text-zinc-500 text-sm py-6">Threads you open from the suggestions above will appear here.</p>`;
 
     const body = `
     <div class="pb-10">
-      <section class="py-4 border-b border-zinc-800/80">
+      <section class="py-5 border-b border-zinc-800/80">
         <h2 class="text-sm font-semibold text-zinc-400 mb-3">Your interests</h2>
-        <form method="post" action="/interests-update" class="flex gap-2 mb-3">
+        <form method="post" action="/interests-update" class="flex gap-2 mb-4">
           <input type="text" name="tags" placeholder="Add interests (comma-separated)" class="flex-1 px-4 py-2 rounded-full border border-zinc-800 bg-zinc-950/60 text-inherit text-sm placeholder:text-zinc-500 outline-none" />
           <button type="submit" class="px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white text-sm">Add</button>
         </form>
         ${tagsHtml ? `<div class="flex flex-wrap gap-2">${tagsHtml}</div>` : "<p class=\"text-zinc-500 text-sm\">Add interests above to get personalized tweet ideas.</p>"}
       </section>
-      <section class="pt-4">
+      <section class="pt-6">
         <h2 class="text-sm font-semibold text-zinc-400 mb-3">For you</h2>
         ${tweetsHtml}
       </section>
@@ -272,13 +272,12 @@ export default async function handler(
                     : threads
                         .map(
                           (th) =>
-                            `<li class="border-b border-zinc-800/80 last:border-b-0"><a href="/thread/${th.id}" class="block py-4 no-underline text-zinc-100 hover:underline"><span class="text-sm text-zinc-500">${formatThreadDate(th.created_at)}</span><p class="m-0 mt-1 line-clamp-3">${escapeHtml(th.main_post)}</p></a><a href="/thread/${th.id}" class="text-zinc-500 hover:text-zinc-300 text-sm">Share</a></li>`
+                            `<li class="border-b border-zinc-800/80 last:border-b-0"><a href="/thread/${th.id}" class="block py-4 no-underline text-zinc-100 hover:underline"><span class="text-sm text-zinc-500">${formatThreadDate(th.created_at)}</span><p class="m-0 mt-1 line-clamp-3">${escapeHtml(th.main_post)}</p></a></li>`
                         )
                         .join("");
                 return `
                 <div>
-                  <div class="sticky top-[50px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80 px-1 py-2">
-                    <p class="m-0 text-xs text-zinc-500">Topic</p>
+                  <div class="sticky top-[50px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80 px-1 py-3">
                     <h2 class="m-0 text-sm font-semibold text-zinc-200 truncate">${escapeHtml(topic.query)}</h2>
                   </div>
                   <ul class="list-none p-0 m-0">${threadsList}</ul>
@@ -289,19 +288,18 @@ export default async function handler(
 
     const body = `
     <div class="pb-10">
-      <section class="py-4 border-b border-zinc-800/80">
+      <section class="py-5 border-b border-zinc-800/80">
         <form method="post" action="/topics" class="flex gap-3">
-          <div class="flex-1">
-            <input type="text" name="topic" placeholder="What do you want to learn today?" maxlength="500" class="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2" />
-            <div class="mt-2 flex items-center justify-between gap-3">
-              <p class="m-0 text-xs text-zinc-500">Tip: try "React hooks", "Postgres", "LLMs"…</p>
+          <div class="flex-1 min-w-0">
+            <input type="text" name="topic" placeholder='e.g. "React hooks", "Postgres", "LLMs"' maxlength="500" class="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2.5" />
+            <div class="mt-3 flex items-center justify-end">
               <button type="submit" class="px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white">Generate</button>
             </div>
             ${feedError ? `<p class="mt-3 text-red-400 text-sm">${escapeHtml(decodeURIComponent(feedError))}</p>` : ""}
           </div>
         </form>
       </section>
-      <section class="pt-2">${topicsHtml}</section>
+      <section class="pt-1">${topicsHtml}</section>
     </div>`;
 
     const html = layout(body, {
@@ -397,7 +395,7 @@ export default async function handler(
         const meta = isTyped ? "" : `#${i + 1}`;
         const askForm =
           userId
-            ? `<div class="mt-3 ml-10 md:ml-12">
+            ? `<div class="mt-4 mb-1 ml-10 md:ml-12">
                 <form method="post" action="/thread/${threadId}/ask">
                   <input type="hidden" name="replyIndex" value="${i}" />
                   <input type="text" name="question" placeholder="Ask a follow-up about this reply…" maxlength="2000" class="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2" />
@@ -408,14 +406,13 @@ export default async function handler(
         return `<article class="py-4 border-b border-zinc-800/80 pl-10 md:pl-12 border-l-2 border-zinc-800/80 ml-2">
           <p class="m-0 text-xs text-zinc-500">${escapeHtml(label)} ${meta}</p>
           <p class="m-0 mt-1 text-sm leading-relaxed whitespace-pre-wrap break-words text-zinc-200">${escapeHtml(content)}</p>
-          <a href="/thread/${threadId}" class="text-zinc-500 hover:text-zinc-300 text-xs">Share</a>
           ${askForm}
         </article>`;
       })
       .join("");
 
     const mainAskForm = userId
-      ? `<section class="px-1 py-4 pb-8 border-b border-zinc-800/80">
+      ? `<section class="px-1 py-5 pb-8 border-b border-zinc-800/80">
           <form method="post" action="/thread/${threadId}/ask" class="flex gap-3">
             <div class="flex-1">
               <input type="text" name="question" placeholder="Ask a follow-up question…" maxlength="2000" class="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2" />
@@ -431,11 +428,9 @@ export default async function handler(
       <article class="border-b border-zinc-800/80">
         <p class="m-0 text-xs text-zinc-500">Thread</p>
         <p class="m-0 mt-2 text-[1.05rem] leading-relaxed whitespace-pre-wrap break-words text-zinc-100">${escapeHtml(thread.main_post)}</p>
-        <a href="/thread/${threadId}" class="text-zinc-500 hover:text-zinc-300 text-xs">Share</a>
       </article>
       ${mainAskForm}
       <section class="divide-y divide-zinc-800/80">${repliesHtml}</section>
-      <p class="text-zinc-500 text-sm mt-4">Share this page: copy the URL from your address bar.</p>
     </div>`;
 
     const usePublicLayout = !userId;
