@@ -316,13 +316,31 @@ export default async function handler(
   }
 
   if (method === "GET" && path === "/thread/new") {
-    const tweetPrefill = url.searchParams.get("tweet") ?? "";
+    const tweetParam = url.searchParams.get("tweet") ?? "";
+    const tweet = tweetParam.trim().slice(0, 2000);
+
+    // Suggestion click: create thread immediately and redirect (user sees loading until done)
+    if (tweet && userId) {
+      const res = await fetch(`${origin}/api/thread-from-tweet`, {
+        method: "POST",
+        headers: apiHeaders(req),
+        body: JSON.stringify({ tweet }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { threadId?: string };
+        if (data.threadId) return redirect(`/thread/${data.threadId}`);
+      }
+      const err = await res.json().catch(() => ({}));
+      const msg = (err as { error?: string }).error ?? "error";
+      return redirect(`/thread/new?tweet=${encodeURIComponent(tweetParam)}&error=${encodeURIComponent(msg)}`);
+    }
+
     const err = url.searchParams.get("error");
     const body = `
     <div class="py-10">
       <form method="post" action="/thread/new" class="max-w-xl">
         <label class="block text-sm text-zinc-600 mb-2">Paste or enter a tweet idea</label>
-        <textarea name="tweet" rows="4" maxlength="2000" placeholder="e.g. How React hooks replace class lifecycle methods" class="w-full px-4 py-3 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder:text-zinc-400 outline-none resize-none">${escapeHtml(tweetPrefill)}</textarea>
+        <textarea name="tweet" rows="4" maxlength="2000" placeholder="e.g. How React hooks replace class lifecycle methods" class="w-full px-4 py-3 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder:text-zinc-400 outline-none resize-none">${escapeHtml(tweetParam)}</textarea>
         ${err ? `<p class="mt-2 text-red-600 text-sm">${escapeHtml(decodeURIComponent(err))}</p>` : ""}
         <button type="submit" class="mt-4 px-4 py-2 rounded-full font-semibold bg-zinc-800 text-white hover:bg-zinc-700">Create thread</button>
       </form>

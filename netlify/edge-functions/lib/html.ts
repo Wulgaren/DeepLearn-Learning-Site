@@ -1,3 +1,5 @@
+import { criticalCss } from "./critical-css.ts";
+
 /** Escape for HTML text content to prevent XSS. */
 export function escapeHtml(s: string): string {
   return s
@@ -117,6 +119,7 @@ export function layout(
   <title>${escapeHtml(title)}</title>
   <link rel="stylesheet" href="${escapeHtml(LAYOUT_OPTS.cssHref)}" />
   <style>${style}</style>
+  ${criticalCss ? `<style>${criticalCss}</style>` : ""}
 </head>
 <body class="${bodyClass}">
   <div class="mx-auto w-full max-w-6xl px-4">
@@ -159,6 +162,7 @@ export function layoutAuth(title: string, body: string, footerHtml: string): str
   <title>${escapeHtml(title)} – DeepLearn</title>
   <link rel="stylesheet" href="${escapeHtml(LAYOUT_OPTS.cssHref)}" />
   <style>:root{color-scheme:light;}body{background:#fff;color:rgb(24 24 27);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
+  ${criticalCss ? `<style>${criticalCss}</style>` : ""}
 </head>
 <body class="min-h-screen flex items-center justify-center p-4 bg-white text-zinc-900">
   <div class="w-full max-w-[360px] rounded-xl border border-zinc-200 bg-zinc-50 p-8 shadow-xl">
@@ -180,6 +184,7 @@ export function layoutPublicThread(body: string, headerTitle: string, backHref: 
   <title>${escapeHtml(headerTitle)} – DeepLearn</title>
   <link rel="stylesheet" href="${escapeHtml(LAYOUT_OPTS.cssHref)}" />
   <style>:root{color-scheme:light;}body{background:#fff;color:rgb(24 24 27);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
+  ${criticalCss ? `<style>${criticalCss}</style>` : ""}
 </head>
 <body class="min-h-screen bg-white text-zinc-900 antialiased">
   <div class="mx-auto w-full max-w-6xl px-4">
