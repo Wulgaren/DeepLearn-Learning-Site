@@ -40,6 +40,7 @@ export function layout(
     headerBackHref?: string;
     userEmail?: string;
     rightSidebar?: boolean;
+    theme?: "dark" | "light";
   } = {}
 ): string {
   const title = opts.title ?? LAYOUT_OPTS.title;
@@ -48,21 +49,27 @@ export function layout(
   const headerBackHref = opts.headerBackHref;
   const userEmail = opts.userEmail;
   const rightSidebar = opts.rightSidebar !== false;
+  const light = opts.theme === "light";
 
   const gridCols = rightSidebar
     ? "grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_320px]"
     : "grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]";
 
+  const navLinkClass = light
+    ? (n: NavItem) => (n.active ? "font-semibold text-zinc-900" : "text-zinc-500 hover:text-zinc-900")
+    : (n: NavItem) => (n.active ? "font-semibold text-zinc-100" : "text-zinc-400 hover:text-zinc-100");
   const navHtml = nav
     .map(
       (n) =>
-        `<a href="${escapeHtml(n.href)}" class="${n.active ? "font-semibold text-zinc-100" : "text-zinc-400 hover:text-zinc-100"} no-underline">${escapeHtml(n.label)}</a>`
+        `<a href="${escapeHtml(n.href)}" class="${navLinkClass(n)} no-underline">${escapeHtml(n.label)}</a>`
     )
     .join("\n                ");
 
   const backLink =
     headerBackHref != null
-      ? `<a href="${escapeHtml(headerBackHref)}" class="text-zinc-300 no-underline hover:text-white shrink-0">←</a>`
+      ? light
+        ? `<a href="${escapeHtml(headerBackHref)}" class="text-zinc-600 no-underline hover:text-zinc-900 shrink-0">←</a>`
+        : `<a href="${escapeHtml(headerBackHref)}" class="text-zinc-300 no-underline hover:text-white shrink-0">←</a>`
       : "";
 
   const headerRight = userEmail
@@ -70,7 +77,17 @@ export function layout(
     : "";
 
   const rightAside = rightSidebar
-    ? `<aside class="hidden lg:block sticky top-0 h-screen py-4">
+    ? light
+      ? `<aside class="hidden lg:block sticky top-0 h-screen py-4">
+        <form method="post" action="/topics" class="rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2">
+          <input type="text" name="topic" placeholder="What do you want to learn today?" maxlength="500" class="w-full bg-transparent outline-none text-sm placeholder:text-zinc-400 text-zinc-900" />
+        </form>
+        <section class="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 mt-4">
+          <h3 class="m-0 text-sm font-semibold text-zinc-900">Tips</h3>
+          <p class="m-0 mt-2 text-sm text-zinc-600 leading-relaxed">Generate threads for a topic, then open one to read replies and ask follow-up questions.</p>
+        </section>
+      </aside>`
+      : `<aside class="hidden lg:block sticky top-0 h-screen py-4">
         <form method="post" action="/topics" class="rounded-full border border-zinc-800 bg-zinc-950/60 px-4 py-2">
           <input type="text" name="topic" placeholder="What do you want to learn today?" maxlength="500" class="w-full bg-transparent outline-none text-sm placeholder:text-zinc-500" />
         </form>
@@ -81,6 +98,17 @@ export function layout(
       </aside>`
     : "";
 
+  const bodyClass = light ? "min-h-screen bg-white text-zinc-900 antialiased" : "min-h-screen bg-black text-zinc-100 antialiased";
+  const style = light
+    ? ":root{color-scheme:light;}body{background:#fff;color:rgb(24 24 27);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}"
+    : ":root{color-scheme:dark;}body{background:#000;color:rgb(244 244 245);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}";
+  const mainBorder = light ? "border-zinc-200" : "border-zinc-800/80";
+  const headerClass = light
+    ? "sticky top-0 z-10 backdrop-blur bg-white/90 border-b border-zinc-200"
+    : "sticky top-0 z-10 backdrop-blur bg-black/70 border-b border-zinc-800/80";
+  const logoClass = light ? "text-zinc-900" : "text-zinc-100";
+  const logoutClass = light ? "text-zinc-500 hover:text-zinc-900" : "text-zinc-400 hover:text-zinc-100";
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -88,22 +116,22 @@ export function layout(
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(title)}</title>
   <link rel="stylesheet" href="${escapeHtml(LAYOUT_OPTS.cssHref)}" />
-  <style>:root{color-scheme:dark;}body{background:#000;color:rgb(244 244 245);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
+  <style>${style}</style>
 </head>
-<body class="min-h-screen bg-black text-zinc-100 antialiased">
+<body class="${bodyClass}">
   <div class="mx-auto w-full max-w-6xl px-4">
     <div class="grid gap-6 ${gridCols}">
       <aside class="hidden lg:block sticky top-0 h-screen py-4">
         <div class="flex h-full flex-col">
-          <a href="/" class="text-zinc-100 no-underline font-semibold text-lg">DeepLearn</a>
+          <a href="/" class="${logoClass} no-underline font-semibold text-lg">DeepLearn</a>
           <nav class="mt-4 flex flex-col gap-1 text-sm">
             ${navHtml}
           </nav>
-          ${userEmail ? `<form method="post" action="/logout" class="mt-4"><button type="submit" class="text-zinc-400 hover:text-zinc-100 text-sm bg-transparent border-0 cursor-pointer p-0">Log out</button></form>` : ""}
+          ${userEmail ? `<form method="post" action="/logout" class="mt-4"><button type="submit" class="${logoutClass} text-sm bg-transparent border-0 cursor-pointer p-0">Log out</button></form>` : ""}
         </div>
       </aside>
-      <main class="min-h-screen lg:border-x border-zinc-800/80">
-        <header class="sticky top-0 z-10 backdrop-blur bg-black/70 border-b border-zinc-800/80">
+      <main class="min-h-screen lg:border-x ${mainBorder}">
+        <header class="${headerClass}">
           <div class="px-4 py-3 flex items-center gap-3 min-w-0">
             ${backLink}
             <span class="font-semibold text-[1.05rem] min-w-0 truncate flex-1">${escapeHtml(headerTitle)}</span>
@@ -142,7 +170,7 @@ export function layoutAuth(title: string, body: string, footerHtml: string): str
 </html>`;
 }
 
-/** Layout for public thread (no sidebar nav, no user). */
+/** Layout for public thread (no sidebar nav, no user). Light/white mode. */
 export function layoutPublicThread(body: string, headerTitle: string, backHref: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -151,18 +179,18 @@ export function layoutPublicThread(body: string, headerTitle: string, backHref: 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(headerTitle)} – DeepLearn</title>
   <link rel="stylesheet" href="${escapeHtml(LAYOUT_OPTS.cssHref)}" />
-  <style>:root{color-scheme:dark;}body{background:#000;color:rgb(244 244 245);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
+  <style>:root{color-scheme:light;}body{background:#fff;color:rgb(24 24 27);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
 </head>
-<body class="min-h-screen bg-black text-zinc-100 antialiased">
+<body class="min-h-screen bg-white text-zinc-900 antialiased">
   <div class="mx-auto w-full max-w-6xl px-4">
     <div class="grid gap-6 grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
       <aside class="hidden lg:block sticky top-0 h-screen py-4">
-        <a href="${escapeHtml(backHref)}" class="text-zinc-100 no-underline font-semibold text-lg">DeepLearn</a>
+        <a href="${escapeHtml(backHref)}" class="text-zinc-900 no-underline font-semibold text-lg">DeepLearn</a>
       </aside>
-      <main class="min-h-screen lg:border-x border-zinc-800/80">
-        <header class="sticky top-0 z-10 backdrop-blur bg-black/70 border-b border-zinc-800/80">
+      <main class="min-h-screen lg:border-x border-zinc-200">
+        <header class="sticky top-0 z-10 backdrop-blur bg-white/90 border-b border-zinc-200">
           <div class="px-4 py-3 flex items-center gap-3 min-w-0">
-            <a href="${escapeHtml(backHref)}" class="text-zinc-300 no-underline hover:text-white shrink-0">←</a>
+            <a href="${escapeHtml(backHref)}" class="text-zinc-600 no-underline hover:text-zinc-900 shrink-0">←</a>
             <span class="font-semibold text-[1.05rem] min-w-0 truncate flex-1">${escapeHtml(headerTitle)}</span>
           </div>
         </header>

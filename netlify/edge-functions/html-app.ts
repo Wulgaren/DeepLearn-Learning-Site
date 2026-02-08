@@ -398,26 +398,26 @@ export default async function handler(
             ? `<div class="mt-4 mb-1 ml-10 md:ml-12">
                 <form method="post" action="/thread/${threadId}/ask">
                   <input type="hidden" name="replyIndex" value="${i}" />
-                  <input type="text" name="question" placeholder="Ask a follow-up about this reply…" maxlength="2000" class="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2" />
-                  <button type="submit" class="mt-2 px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white">Ask</button>
+                  <input type="text" name="question" placeholder="Ask a follow-up about this reply…" maxlength="2000" class="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-400 text-zinc-900 outline-none py-2" />
+                  <button type="submit" class="mt-2 px-4 py-2 rounded-full font-semibold bg-zinc-800 text-white hover:bg-zinc-700">Ask</button>
                 </form>
               </div>`
             : "";
-        return `<article class="py-4 border-b border-zinc-800/80 pl-10 md:pl-12 border-l-2 border-zinc-800/80 ml-2">
+        return `<article class="py-4 border-b border-zinc-200 pl-10 md:pl-12 border-l-2 border-zinc-200 ml-2">
           <p class="m-0 text-xs text-zinc-500">${escapeHtml(label)} ${meta}</p>
-          <p class="m-0 mt-1 text-sm leading-relaxed whitespace-pre-wrap break-words text-zinc-200">${escapeHtml(content)}</p>
+          <p class="m-0 mt-1 text-sm leading-relaxed whitespace-pre-wrap break-words text-zinc-700">${escapeHtml(content)}</p>
           ${askForm}
         </article>`;
       })
       .join("");
 
     const mainAskForm = userId
-      ? `<section class="px-1 py-5 pb-8 border-b border-zinc-800/80">
+      ? `<section class="px-1 py-5 pb-8 border-b border-zinc-200">
           <form method="post" action="/thread/${threadId}/ask" class="flex gap-3">
             <div class="flex-1">
-              <input type="text" name="question" placeholder="Ask a follow-up question…" maxlength="2000" class="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2" />
-              ${threadError ? `<p class="mt-2 text-red-400 text-sm">${escapeHtml(decodeURIComponent(threadError))}</p>` : ""}
-              <button type="submit" class="mt-2 px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white">Ask</button>
+              <input type="text" name="question" placeholder="Ask a follow-up question…" maxlength="2000" class="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-400 text-zinc-900 outline-none py-2" />
+              ${threadError ? `<p class="mt-2 text-red-600 text-sm">${escapeHtml(decodeURIComponent(threadError))}</p>` : ""}
+              <button type="submit" class="mt-2 px-4 py-2 rounded-full font-semibold bg-zinc-800 text-white hover:bg-zinc-700">Ask</button>
             </div>
           </form>
         </section>`
@@ -425,12 +425,12 @@ export default async function handler(
 
     const threadBody = `
     <div class="pb-16">
-      <article class="border-b border-zinc-800/80">
+      <article class="border-b border-zinc-200">
         <p class="m-0 pt-3 text-xs text-zinc-500">Thread</p>
-        <p class="m-0 mt-2 text-[1.05rem] leading-relaxed whitespace-pre-wrap break-words text-zinc-100">${escapeHtml(thread.main_post)}</p>
+        <p class="m-0 mt-2 mb-4 text-[1.05rem] leading-relaxed whitespace-pre-wrap break-words text-zinc-900">${escapeHtml(thread.main_post)}</p>
       </article>
       ${mainAskForm}
-      <section class="divide-y divide-zinc-800/80">${repliesHtml}</section>
+      <section class="divide-y divide-zinc-200">${repliesHtml}</section>
     </div>`;
 
     const usePublicLayout = !userId;
@@ -445,6 +445,7 @@ export default async function handler(
           headerBackHref: "/",
           userEmail: undefined,
           rightSidebar: true,
+          theme: "light",
         });
     return new Response(html, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
