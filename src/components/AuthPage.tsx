@@ -50,8 +50,19 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
     setLoading(true);
     try {
       if (mode === 'login') {
-        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
         if (err) throw err;
+        if (data.session?.access_token) {
+          await fetch('/api/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              access_token: data.session.access_token,
+              refresh_token: data.session.refresh_token ?? '',
+            }),
+          });
+        }
         navigate('/', { replace: true });
       } else {
         const { data, error: err } = await supabase.auth.signUp({
@@ -67,6 +78,17 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
           );
           navigate('/login', { replace: true });
           return;
+        }
+        if (data.session?.access_token) {
+          await fetch('/api/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              access_token: data.session.access_token,
+              refresh_token: data.session.refresh_token ?? '',
+            }),
+          });
         }
         navigate('/', { replace: true });
       }

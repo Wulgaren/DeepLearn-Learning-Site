@@ -65,9 +65,12 @@ export default async function handler(req: Request, context: Context): Promise<R
     return redirect("/login", undefined, isHttps);
   }
 
-  // POST /logout — clear cookie and redirect to /login
+  // POST /logout — clear session cookies and redirect to /login
   if (path === "/logout" && req.method === "POST") {
-    return redirect("/login", { name: SESSION_COOKIE_NAME, value: "", clear: true }, isHttps);
+    const headers = new Headers({ Location: "/login" });
+    headers.append("Set-Cookie", `${SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; ${COOKIE_OPTS}`);
+    headers.append("Set-Cookie", `session_refresh=; Path=/; Max-Age=0; ${COOKIE_OPTS}`);
+    return new Response(null, { status: 302, headers });
   }
 
   // GET /login — pass through to SPA when JS proven; else show no-JS form with head upgrade script
