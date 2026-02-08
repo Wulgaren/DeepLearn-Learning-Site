@@ -45,9 +45,10 @@ export default function Home() {
     },
   });
 
+  type CreateThreadVars = { tweet: string; openInNewTab?: boolean };
   const createThreadMutation = useMutation({
-    mutationFn: ({ tweet }: { tweet: string }) => createThreadFromTweet(tweet),
-    onSuccess: (data, variables) => {
+    mutationFn: ({ tweet }: CreateThreadVars) => createThreadFromTweet(tweet),
+    onSuccess: (data, variables: CreateThreadVars) => {
       queryClient.invalidateQueries({ queryKey: ['homeThreads'] });
       setCreatingTweet(null);
       if (variables.openInNewTab) {
