@@ -5,6 +5,13 @@ const SESSION_COOKIE_NAME = "session";
 const COOKIE_OPTS = "HttpOnly; Path=/; SameSite=Lax";
 const COOKIE_SECURE = "Secure; ";
 
+function getSupabaseAuthConfig(): { url: string; anonKey: string } | null {
+  const url = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("VITE_SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("VITE_SUPABASE_ANON_KEY");
+  if (url && anonKey) return { url, anonKey };
+  return null;
+}
+
 function redirect(
   location: string,
   cookie?: { name: string; value: string; clear?: boolean },
@@ -100,16 +107,13 @@ export default async function handler(req: Request, _context: Context): Promise<
     if (!email || !password) {
       return redirect("/login?error=missing");
     }
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    if (!supabaseUrl || !anonKey) {
-      return redirect("/login?error=config");
-    }
-    const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+    const config = getSupabaseAuthConfig();
+    if (!config) return redirect("/login?error=config");
+    const res = await fetch(`${config.url}/auth/v1/token?grant_type=password`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: anonKey,
+        apikey: config.anonKey,
       },
       body: JSON.stringify({ email, password }),
     });
@@ -131,16 +135,13 @@ export default async function handler(req: Request, _context: Context): Promise<
     if (!email || !password) {
       return redirect("/signup?error=missing");
     }
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    if (!supabaseUrl || !anonKey) {
-      return redirect("/signup?error=config");
-    }
-    const res = await fetch(`${supabaseUrl}/auth/v1/signup`, {
+    const config = getSupabaseAuthConfig();
+    if (!config) return redirect("/signup?error=config");
+    const res = await fetch(`${config.url}/auth/v1/signup`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: anonKey,
+        apikey: config.anonKey,
       },
       body: JSON.stringify({ email, password }),
     });
