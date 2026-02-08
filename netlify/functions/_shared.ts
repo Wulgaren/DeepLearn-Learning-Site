@@ -78,16 +78,37 @@ export function sanitizeTag(tag: string): string {
 
 export const MAX_TAGS_COUNT = 30;
 
-export function getUserId(event: HandlerEvent): string | null {
-  const auth = event.headers['authorization'] || event.headers['Authorization'];
-  if (!auth?.startsWith('Bearer ')) return null;
-  const token = auth.slice(7);
+const SESSION_COOKIE_NAME = 'session';
+
+/** Read JWT from session cookie (for no-JS form-based auth). */
+export function getTokenFromCookie(event: HandlerEvent): string | null {
+  const cookie = event.headers['cookie'] || event.headers['Cookie'];
+  if (!cookie || typeof cookie !== 'string') return null;
+  const match = cookie.match(new RegExp(`${SESSION_COOKIE_NAME}=([^;]+)`));
+  const token = match?.[1]?.trim();
+  return token && token.length > 0 ? token : null;
+}
+
+function parseJwtPayload(token: string): { sub?: string } | null {
   try {
     const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-    return payload.sub ?? null;
+    return payload && typeof payload === 'object' ? payload : null;
   } catch {
     return null;
   }
+}
+
+export function getUserId(event: HandlerEvent): string | null {
+  const auth = event.headers['authorization'] || event.headers['Authorization'];
+  let token: string | null = null;
+  if (auth?.startsWith('Bearer ')) {
+    token = auth.slice(7);
+  } else {
+    token = getTokenFromCookie(event);
+  }
+  if (!token) return null;
+  const payload = parseJwtPayload(token);
+  return payload?.sub ?? null;
 }
 
 export function jsonResponse(body: unknown, status = 200): HandlerResponse {
