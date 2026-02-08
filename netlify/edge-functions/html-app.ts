@@ -426,7 +426,7 @@ export default async function handler(
     const threadBody = `
     <div class="pb-16">
       <article class="border-b border-zinc-800/80">
-        <p class="m-0 text-xs text-zinc-500">Thread</p>
+        <p class="m-0 pt-3 text-xs text-zinc-500">Thread</p>
         <p class="m-0 mt-2 text-[1.05rem] leading-relaxed whitespace-pre-wrap break-words text-zinc-100">${escapeHtml(thread.main_post)}</p>
       </article>
       ${mainAskForm}
