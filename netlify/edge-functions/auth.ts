@@ -70,15 +70,15 @@ export default async function handler(req: Request, _context: Context): Promise<
     const error = url.searchParams.get("error");
     const message = url.searchParams.get("message");
     const body = `
-    <p class="text-zinc-400 text-sm mb-6 leading-snug">Use your email and password to access your feed on any device.</p>
+    <p class="text-zinc-600 text-sm mb-6 leading-snug">Use your email and password to access your feed on any device.</p>
     <form method="post" action="/login" class="flex flex-col gap-3">
-      <input type="email" name="email" placeholder="Email" required autocomplete="email" class="px-4 py-3 rounded-lg border border-zinc-700 bg-zinc-800 text-inherit text-base placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      <input type="password" name="password" placeholder="Password" required autocomplete="current-password" class="px-4 py-3 rounded-lg border border-zinc-700 bg-zinc-800 text-inherit text-base placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      ${error ? `<p class="text-red-400 text-sm m-0">${escapeHtml(decodeURIComponent(error))}</p>` : ""}
-      ${message === "confirm" ? `<p class="text-zinc-400 text-sm m-0">Check your inbox (and spam) for the confirmation link, then log in.</p>` : ""}
-      <button type="submit" class="mt-1 px-4 py-3 rounded-lg border border-zinc-600 bg-zinc-700 font-medium hover:bg-zinc-600">Log in</button>
+      <input type="email" name="email" placeholder="Email" required autocomplete="email" class="px-4 py-3 rounded-lg border border-zinc-200 bg-white text-zinc-900 text-base placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      <input type="password" name="password" placeholder="Password" required autocomplete="current-password" class="px-4 py-3 rounded-lg border border-zinc-200 bg-white text-zinc-900 text-base placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      ${error ? `<p class="text-red-600 text-sm m-0">${escapeHtml(decodeURIComponent(error))}</p>` : ""}
+      ${message === "confirm" ? `<p class="text-zinc-600 text-sm m-0">Check your inbox (and spam) for the confirmation link, then log in.</p>` : ""}
+      <button type="submit" class="mt-1 px-4 py-3 rounded-lg border border-zinc-300 bg-zinc-800 text-white font-medium hover:bg-zinc-700">Log in</button>
     </form>`;
-    const footer = `<p class="mt-5 text-sm text-zinc-400">Don't have an account? <a href="/signup" class="text-blue-400 hover:underline">Sign up</a></p>`;
+    const footer = `<p class="mt-5 text-sm text-zinc-600">Don't have an account? <a href="/signup" class="text-blue-600 hover:underline">Sign up</a></p>`;
     const html = layoutAuth("Log in", body, footer);
     return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
   }
@@ -87,14 +87,14 @@ export default async function handler(req: Request, _context: Context): Promise<
   if (path === "/signup" && req.method === "GET") {
     const error = url.searchParams.get("error");
     const body = `
-    <p class="text-zinc-400 text-sm mb-6 leading-snug">Create an account to save your topics and threads.</p>
+    <p class="text-zinc-600 text-sm mb-6 leading-snug">Create an account to save your topics and threads.</p>
     <form method="post" action="/signup" class="flex flex-col gap-3">
-      <input type="email" name="email" placeholder="Email" required autocomplete="email" class="px-4 py-3 rounded-lg border border-zinc-700 bg-zinc-800 text-inherit text-base placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      <input type="password" name="password" placeholder="Password (min 6 characters)" required minlength="6" autocomplete="new-password" class="px-4 py-3 rounded-lg border border-zinc-700 bg-zinc-800 text-inherit text-base placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      ${error ? `<p class="text-red-400 text-sm m-0">${escapeHtml(decodeURIComponent(error))}</p>` : ""}
-      <button type="submit" class="mt-1 px-4 py-3 rounded-lg border border-zinc-600 bg-zinc-700 font-medium hover:bg-zinc-600">Sign up</button>
+      <input type="email" name="email" placeholder="Email" required autocomplete="email" class="px-4 py-3 rounded-lg border border-zinc-200 bg-white text-zinc-900 text-base placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      <input type="password" name="password" placeholder="Password (min 6 characters)" required minlength="6" autocomplete="new-password" class="px-4 py-3 rounded-lg border border-zinc-200 bg-white text-zinc-900 text-base placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      ${error ? `<p class="text-red-600 text-sm m-0">${escapeHtml(decodeURIComponent(error))}</p>` : ""}
+      <button type="submit" class="mt-1 px-4 py-3 rounded-lg border border-zinc-300 bg-zinc-800 text-white font-medium hover:bg-zinc-700">Sign up</button>
     </form>`;
-    const footer = `<p class="mt-5 text-sm text-zinc-400">Already have an account? <a href="/login" class="text-blue-400 hover:underline">Log in</a></p>`;
+    const footer = `<p class="mt-5 text-sm text-zinc-600">Already have an account? <a href="/login" class="text-blue-600 hover:underline">Log in</a></p>`;
     const html = layoutAuth("Sign up", body, footer);
     return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
   }

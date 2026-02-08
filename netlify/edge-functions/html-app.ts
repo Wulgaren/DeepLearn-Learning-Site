@@ -187,7 +187,7 @@ export default async function handler(
         ? tags
             .map(
               (tag) =>
-                `<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-800/80 text-sm text-zinc-200">${escapeHtml(tag)} <form method="post" action="/interests-update" style="display:inline"><input type="hidden" name="remove" value="${escapeHtml(tag)}" /><button type="submit" class="text-zinc-500 hover:text-zinc-100 bg-transparent border-0 cursor-pointer p-0" aria-label="Remove ${escapeHtml(tag)}">×</button></form></span>`
+                `<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-200 text-sm text-zinc-800">${escapeHtml(tag)} <form method="post" action="/interests-update" style="display:inline"><input type="hidden" name="remove" value="${escapeHtml(tag)}" /><button type="submit" class="text-zinc-500 hover:text-zinc-900 bg-transparent border-0 cursor-pointer p-0" aria-label="Remove ${escapeHtml(tag)}">×</button></form></span>`
             )
             .join(" ")
         : "";
@@ -197,39 +197,39 @@ export default async function handler(
         ? tweets
             .map(
               (tweet) =>
-                `<div class="py-4 border-b border-zinc-800/80"><a href="/thread/new?tweet=${encodeURIComponent(tweet)}" class="no-underline text-zinc-100 hover:underline block"><p class="m-0 text-[1.05rem] leading-relaxed line-clamp-2 text-zinc-200">${escapeHtml(tweet)}</p></a></div>`
+                `<div class="py-4 border-b border-zinc-200"><a href="/thread/new?tweet=${encodeURIComponent(tweet)}" class="no-underline text-zinc-900 hover:underline block"><p class="m-0 text-[1.05rem] leading-relaxed line-clamp-2 text-zinc-700">${escapeHtml(tweet)}</p></a></div>`
             )
             .join("")
         : tags.length === 0
-          ? `<p class="text-zinc-500 text-sm py-6">Add interests below to see personalized tweet ideas here.</p>`
-          : `<p class="text-zinc-500 text-sm py-6">No ideas right now. Try adding more interests.</p>`;
+          ? `<p class="text-zinc-600 text-sm py-6">Add interests below to see personalized tweet ideas here.</p>`
+          : `<p class="text-zinc-600 text-sm py-6">No ideas right now. Try adding more interests.</p>`;
 
     const homeThreadsHtml =
       homeThreads.length > 0
         ? homeThreads
             .map(
               (t) =>
-                `<div class="py-4 border-b border-zinc-800/80"><a href="/thread/${t.id}" class="no-underline text-zinc-100 hover:underline block"><p class="m-0 text-sm text-zinc-500">Thread · ${formatThreadDate(t.created_at)}</p><p class="m-0 mt-1 text-[1.05rem] leading-relaxed line-clamp-2">${escapeHtml(t.main_post)}</p></a></div>`
+                `<div class="py-4 border-b border-zinc-200"><a href="/thread/${t.id}" class="no-underline text-zinc-900 hover:underline block"><p class="m-0 text-sm text-zinc-500">Thread · ${formatThreadDate(t.created_at)}</p><p class="m-0 mt-1 text-[1.05rem] leading-relaxed line-clamp-2 text-zinc-700">${escapeHtml(t.main_post)}</p></a></div>`
             )
             .join("")
-        : `<p class="text-zinc-500 text-sm py-6">Threads you open from the suggestions above will appear here.</p>`;
+        : `<p class="text-zinc-600 text-sm py-6">Threads you open from the suggestions above will appear here.</p>`;
 
     const body = `
     <div class="pb-10">
-      <section class="py-5 border-b border-zinc-800/80">
-        <h2 class="text-sm font-semibold text-zinc-400 mb-3">Your interests</h2>
+      <section class="py-5 border-b border-zinc-200">
+        <h2 class="text-sm font-semibold text-zinc-600 mb-3">Your interests</h2>
         <form method="post" action="/interests-update" class="flex gap-2 mb-4">
-          <input type="text" name="tags" placeholder="Add interests (comma-separated)" class="flex-1 px-4 py-2 rounded-full border border-zinc-800 bg-zinc-950/60 text-inherit text-sm placeholder:text-zinc-500 outline-none" />
-          <button type="submit" class="px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white text-sm">Add</button>
+          <input type="text" name="tags" placeholder="Add interests (comma-separated)" class="flex-1 px-4 py-2 rounded-full border border-zinc-200 bg-zinc-50 text-zinc-900 text-sm placeholder:text-zinc-400 outline-none" />
+          <button type="submit" class="px-4 py-2 rounded-full font-semibold bg-zinc-800 text-white hover:bg-zinc-700 text-sm">Add</button>
         </form>
-        ${tagsHtml ? `<div class="flex flex-wrap gap-2">${tagsHtml}</div>` : "<p class=\"text-zinc-500 text-sm\">Add interests above to get personalized tweet ideas.</p>"}
+        ${tagsHtml ? `<div class="flex flex-wrap gap-2">${tagsHtml}</div>` : "<p class=\"text-zinc-600 text-sm\">Add interests above to get personalized tweet ideas.</p>"}
       </section>
       <section class="pt-6">
-        <h2 class="text-sm font-semibold text-zinc-400 mb-3">For you</h2>
+        <h2 class="text-sm font-semibold text-zinc-600 mb-3">For you</h2>
         ${tweetsHtml}
       </section>
-      <section class="pt-6 border-t border-zinc-800/80">
-        <h2 class="text-sm font-semibold text-zinc-400 mb-3">Your threads</h2>
+      <section class="pt-6 border-t border-zinc-200">
+        <h2 class="text-sm font-semibold text-zinc-600 mb-3">Your threads</h2>
         ${homeThreadsHtml}
       </section>
     </div>`;
@@ -261,24 +261,24 @@ export default async function handler(
 
     const topicsHtml =
       topics.length === 0
-        ? `<div class="py-10"><p class="m-0 text-zinc-400">No topics yet.</p><p class="m-0 mt-2 text-sm text-zinc-500">Use the composer above to generate your first set of threads.</p></div>`
+        ? `<div class="py-10"><p class="m-0 text-zinc-600">No topics yet.</p><p class="m-0 mt-2 text-sm text-zinc-500">Use the composer above to generate your first set of threads.</p></div>`
         : topics
             .map(
               (topic) => {
                 const threads = threadsByTopic[topic.id] ?? [];
                 const threadsList =
                   threads.length === 0
-                    ? `<div class="py-6 text-sm text-zinc-500">No threads yet for this topic.</div>`
+                    ? `<div class="py-6 text-sm text-zinc-600">No threads yet for this topic.</div>`
                     : threads
                         .map(
                           (th) =>
-                            `<li class="border-b border-zinc-800/80 last:border-b-0"><a href="/thread/${th.id}" class="block py-4 no-underline text-zinc-100 hover:underline"><span class="text-sm text-zinc-500">${formatThreadDate(th.created_at)}</span><p class="m-0 mt-1 line-clamp-3">${escapeHtml(th.main_post)}</p></a></li>`
+                            `<li class="border-b border-zinc-200 last:border-b-0"><a href="/thread/${th.id}" class="block py-4 no-underline text-zinc-900 hover:underline"><span class="text-sm text-zinc-500">${formatThreadDate(th.created_at)}</span><p class="m-0 mt-1 line-clamp-3 text-zinc-700">${escapeHtml(th.main_post)}</p></a></li>`
                         )
                         .join("");
                 return `
                 <div>
-                  <div class="sticky top-[50px] z-[5] bg-black/70 backdrop-blur border-b border-zinc-800/80 px-1 py-3">
-                    <h2 class="m-0 text-sm font-semibold text-zinc-200 truncate">${escapeHtml(topic.query)}</h2>
+                  <div class="sticky top-[50px] z-[5] bg-white/90 backdrop-blur border-b border-zinc-200 px-1 py-3">
+                    <h2 class="m-0 text-sm font-semibold text-zinc-800 truncate">${escapeHtml(topic.query)}</h2>
                   </div>
                   <ul class="list-none p-0 m-0">${threadsList}</ul>
                 </div>`;
@@ -288,14 +288,14 @@ export default async function handler(
 
     const body = `
     <div class="pb-10">
-      <section class="py-5 border-b border-zinc-800/80">
+      <section class="py-5 border-b border-zinc-200">
         <form method="post" action="/topics" class="flex gap-3">
           <div class="flex-1 min-w-0">
-            <input type="text" name="topic" placeholder='e.g. "React hooks", "Postgres", "LLMs"' maxlength="500" class="w-full bg-transparent text-[1.05rem] placeholder:text-zinc-500 outline-none py-2.5" />
+            <input type="text" name="topic" placeholder='e.g. "React hooks", "Postgres", "LLMs"' maxlength="500" class="w-full bg-transparent text-zinc-900 text-[1.05rem] placeholder:text-zinc-400 outline-none py-2.5" />
             <div class="mt-3 flex items-center justify-end">
-              <button type="submit" class="px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white">Generate</button>
+              <button type="submit" class="px-4 py-2 rounded-full font-semibold bg-zinc-800 text-white hover:bg-zinc-700">Generate</button>
             </div>
-            ${feedError ? `<p class="mt-3 text-red-400 text-sm">${escapeHtml(decodeURIComponent(feedError))}</p>` : ""}
+            ${feedError ? `<p class="mt-3 text-red-600 text-sm">${escapeHtml(decodeURIComponent(feedError))}</p>` : ""}
           </div>
         </form>
       </section>
@@ -321,10 +321,10 @@ export default async function handler(
     const body = `
     <div class="py-10">
       <form method="post" action="/thread/new" class="max-w-xl">
-        <label class="block text-sm text-zinc-500 mb-2">Paste or enter a tweet idea</label>
-        <textarea name="tweet" rows="4" maxlength="2000" placeholder="e.g. How React hooks replace class lifecycle methods" class="w-full px-4 py-3 rounded-lg border border-zinc-800 bg-zinc-950/60 text-inherit placeholder:text-zinc-500 outline-none resize-none">${escapeHtml(tweetPrefill)}</textarea>
-        ${err ? `<p class="mt-2 text-red-400 text-sm">${escapeHtml(decodeURIComponent(err))}</p>` : ""}
-        <button type="submit" class="mt-4 px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white">Create thread</button>
+        <label class="block text-sm text-zinc-600 mb-2">Paste or enter a tweet idea</label>
+        <textarea name="tweet" rows="4" maxlength="2000" placeholder="e.g. How React hooks replace class lifecycle methods" class="w-full px-4 py-3 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder:text-zinc-400 outline-none resize-none">${escapeHtml(tweetPrefill)}</textarea>
+        ${err ? `<p class="mt-2 text-red-600 text-sm">${escapeHtml(decodeURIComponent(err))}</p>` : ""}
+        <button type="submit" class="mt-4 px-4 py-2 rounded-full font-semibold bg-zinc-800 text-white hover:bg-zinc-700">Create thread</button>
       </form>
     </div>`;
     const html = layout(body, {
@@ -351,7 +351,7 @@ export default async function handler(
     );
     if (!threadRes.ok) {
       if (threadRes.status === 404 || threadRes.status === 403) {
-        const body = `<p class="py-4 text-red-400">Thread not found or you don't have access.</p>`;
+        const body = `<p class="py-4 text-red-600">Thread not found or you don't have access.</p>`;
         const html = layout(body, {
           headerTitle: "Post",
           headerBackHref: "/",
@@ -445,7 +445,6 @@ export default async function handler(
           headerBackHref: "/",
           userEmail: undefined,
           rightSidebar: true,
-          theme: "light",
         });
     return new Response(html, {
       headers: { "Content-Type": "text/html; charset=utf-8" },

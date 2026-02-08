@@ -49,7 +49,7 @@ export function layout(
   const headerBackHref = opts.headerBackHref;
   const userEmail = opts.userEmail;
   const rightSidebar = opts.rightSidebar !== false;
-  const light = opts.theme === "light";
+  const light = opts.theme !== "dark";
 
   const gridCols = rightSidebar
     ? "grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_320px]"
@@ -149,7 +149,7 @@ export function layout(
 </html>`;
 }
 
-/** Auth pages: centered form, no nav. */
+/** Auth pages: centered form, no nav. White/light mode. */
 export function layoutAuth(title: string, body: string, footerHtml: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -158,11 +158,11 @@ export function layoutAuth(title: string, body: string, footerHtml: string): str
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(title)} – DeepLearn</title>
   <link rel="stylesheet" href="${escapeHtml(LAYOUT_OPTS.cssHref)}" />
-  <style>:root{color-scheme:dark;}body{background:#0a0a0a;color:rgb(244 244 245);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
+  <style>:root{color-scheme:light;}body{background:#fff;color:rgb(24 24 27);font-family:system-ui,sans-serif;margin:0;min-height:100vh;}</style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4 bg-zinc-950 text-zinc-100">
-  <div class="w-full max-w-[360px] rounded-xl border border-zinc-800 bg-zinc-900 p-8 shadow-xl">
-    <h1 class="text-2xl font-semibold m-0 mb-2">${escapeHtml(title)}</h1>
+<body class="min-h-screen flex items-center justify-center p-4 bg-white text-zinc-900">
+  <div class="w-full max-w-[360px] rounded-xl border border-zinc-200 bg-zinc-50 p-8 shadow-xl">
+    <h1 class="text-2xl font-semibold m-0 mb-2 text-zinc-900">${escapeHtml(title)}</h1>
     ${body}
     ${footerHtml}
   </div>
