@@ -7,6 +7,17 @@ import type {
 } from '../types';
 
 const API_BASE = ''; // all API routes are edge at /api/*
+const AI_RETRY_DELAY_MS = 1000;
+
+/** Run an AI-backed request; on failure wait once then retry one time before throwing. */
+async function withOneRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch {
+    await new Promise((r) => setTimeout(r, AI_RETRY_DELAY_MS));
+    return await fn();
+  }
+}
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const { supabase } = await import('./supabase');
@@ -45,10 +56,12 @@ async function apiFetch<T>(
 }
 
 export async function generateFeed(topic: string): Promise<GenerateFeedResponse> {
-  return apiFetch<GenerateFeedResponse>(`${API_BASE}/api/feed-generate`, {
-    method: 'POST',
-    body: JSON.stringify({ topic }),
-  });
+  return withOneRetry(() =>
+    apiFetch<GenerateFeedResponse>(`${API_BASE}/api/feed-generate`, {
+      method: 'POST',
+      body: JSON.stringify({ topic }),
+    })
+  );
 }
 
 export async function getFeed(): Promise<GetFeedResponse> {
@@ -66,15 +79,17 @@ export async function askThread(
   question: string,
   options?: { replyContext?: string; replyIndex?: number | null }
 ): Promise<AskThreadResponse> {
-  return apiFetch<AskThreadResponse>(`${API_BASE}/api/thread-ask`, {
-    method: 'POST',
-    body: JSON.stringify({
-      threadId,
-      question,
-      replyContext: options?.replyContext || undefined,
-      replyIndex: options?.replyIndex ?? null,
-    }),
-  });
+  return withOneRetry(() =>
+    apiFetch<AskThreadResponse>(`${API_BASE}/api/thread-ask`, {
+      method: 'POST',
+      body: JSON.stringify({
+        threadId,
+        question,
+        replyContext: options?.replyContext || undefined,
+        replyIndex: options?.replyIndex ?? null,
+      }),
+    })
+  );
 }
 
 export async function getInterests(): Promise<{ tags: string[] }> {
@@ -96,10 +111,12 @@ export async function getHomeTweets(): Promise<{ tweets: string[] }> {
 }
 
 export async function createThreadFromTweet(tweet: string): Promise<{ threadId: string }> {
-  return apiFetch<{ threadId: string }>(`${API_BASE}/api/thread-from-tweet`, {
-    method: 'POST',
-    body: JSON.stringify({ tweet }),
-  });
+  return withOneRetry(() =>
+    apiFetch<{ threadId: string }>(`${API_BASE}/api/thread-from-tweet`, {
+      method: 'POST',
+      body: JSON.stringify({ tweet }),
+    })
+  );
 }
 
 export async function getHomeThreads(): Promise<{ threads: ThreadSummary[] }> {
