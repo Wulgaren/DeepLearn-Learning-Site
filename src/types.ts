@@ -14,6 +14,10 @@ export interface ThreadSummary {
 /** Original thread reply (string) or inline Q&A (typed object) */
 export type ThreadReplyItem = string | { type: 'user' | 'ai'; content: string };
 
+export function isTypedReply(item: ThreadReplyItem): item is { type: 'user' | 'ai'; content: string } {
+  return typeof item === 'object' && item !== null && 'type' in item && 'content' in item;
+}
+
 export interface Thread {
   id: string;
   topic_id: string;

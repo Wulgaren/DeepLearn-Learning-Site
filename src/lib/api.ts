@@ -26,9 +26,22 @@ async function apiFetch<T>(
     body: options.body,
     headers: headers as Record<string, string>,
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? 'Request failed');
-  return data as T;
+  const text = await res.text();
+  if (!res.ok) {
+    let message = 'Request failed';
+    try {
+      const data = text ? (JSON.parse(text) as { error?: string }) : {};
+      message = data.error ?? message;
+    } catch {
+      // non-JSON error body (e.g. HTML)
+    }
+    throw new Error(message);
+  }
+  try {
+    return (text ? JSON.parse(text) : {}) as T;
+  } catch {
+    throw new Error('Invalid response');
+  }
 }
 
 export async function generateFeed(topic: string): Promise<GenerateFeedResponse> {

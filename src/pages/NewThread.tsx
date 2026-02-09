@@ -31,18 +31,18 @@ export default function NewThread() {
     if (started.current) return;
     const rawHash = location.hash.slice(1);
     if (!rawHash) {
-      setError('Missing suggestion');
+      queueMicrotask(() => setError('Missing suggestion'));
       return;
     }
     let tweet: string;
     try {
       tweet = decodeURIComponent(rawHash);
     } catch {
-      setError('Invalid link');
+      queueMicrotask(() => setError('Invalid link'));
       return;
     }
     if (!tweet.trim()) {
-      setError('Missing suggestion');
+      queueMicrotask(() => setError('Missing suggestion'));
       return;
     }
     started.current = true;

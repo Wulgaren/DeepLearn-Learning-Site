@@ -7,6 +7,7 @@ import { formatThreadDate } from '../lib/format';
 import { useCopyLink } from '../hooks/useCopyLink';
 import CopyLinkToast from '../components/CopyLinkToast';
 import PostRow from '../components/PostRow';
+import ShareButton from '../components/ShareButton';
 import type { FeedTopic, ThreadSummary } from '../types';
 
 export default function Feed() {
@@ -47,12 +48,6 @@ export default function Feed() {
   }, [location.state, location.pathname, navigate]);
 
   const error = feedError != null ? getErrorMessage(feedError) : undefined;
-
-  function handleShare(e: React.MouseEvent, threadId: string) {
-    e.preventDefault();
-    e.stopPropagation();
-    void copyLink(threadId);
-  }
 
   function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
@@ -140,15 +135,7 @@ export default function Feed() {
                           meta={`${Array.isArray(thread.replies) ? thread.replies.length : 0} replies · ${formatThreadDate(thread.created_at)}`}
                           body={thread.main_post}
                           lineClamp={3}
-                          actions={
-                            <button
-                              type="button"
-                              onClick={(e) => handleShare(e, thread.id)}
-                              className="hover:text-zinc-300"
-                            >
-                              Share
-                            </button>
-                          }
+                          actions={<ShareButton threadId={thread.id} copyLink={copyLink} stopPropagation />}
                         />
                       </li>
                     ))}

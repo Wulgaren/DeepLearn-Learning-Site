@@ -3,6 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getErrorMessage } from '../lib/errors';
 
+async function setSessionCookies(access_token: string, refresh_token: string): Promise<void> {
+  await fetch('/api/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ access_token, refresh_token }),
+  });
+}
+
 const inputClass =
   'px-4 py-3 rounded-lg border border-zinc-700 bg-zinc-800 text-inherit text-base placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500';
 const buttonClass =
@@ -53,15 +62,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
         const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
         if (err) throw err;
         if (data.session?.access_token) {
-          await fetch('/api/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              access_token: data.session.access_token,
-              refresh_token: data.session.refresh_token ?? '',
-            }),
-          });
+          await setSessionCookies(data.session.access_token, data.session.refresh_token ?? '');
         }
         navigate('/', { replace: true });
       } else {
@@ -80,15 +81,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
           return;
         }
         if (data.session?.access_token) {
-          await fetch('/api/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              access_token: data.session.access_token,
-              refresh_token: data.session.refresh_token ?? '',
-            }),
-          });
+          await setSessionCookies(data.session.access_token, data.session.refresh_token ?? '');
         }
         navigate('/', { replace: true });
       }
