@@ -7,7 +7,9 @@ import { useCopyLink } from '../hooks/useCopyLink';
 import { useAuth } from '../contexts/AuthContext';
 import CopyLinkToast from '../components/CopyLinkToast';
 import PostRow from '../components/PostRow';
+import ShareButton from '../components/ShareButton';
 import type { ThreadReplyItem } from '../types';
+import { isTypedReply } from '../types';
 
 export default function Thread() {
   const { user } = useAuth();
@@ -80,7 +82,7 @@ export default function Thread() {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     }
-    setScrollToReplyIndex(null);
+    queueMicrotask(() => setScrollToReplyIndex(null));
   }, [scrollToReplyIndex]);
 
   const error =
@@ -99,11 +101,6 @@ export default function Thread() {
           : anchorReply.content
         : undefined;
     askMutation.mutate({ q, replyContext, replyIndex: replyFormAnchor });
-  }
-
-  function handleShare() {
-    if (!threadId) return;
-    void copyLink(threadId);
   }
 
   if (loading) return <p className="py-4 text-zinc-500">Loading thread…</p>;
@@ -137,13 +134,7 @@ export default function Thread() {
                   Reply
                 </button>
               )}
-              <button
-                type="button"
-                onClick={handleShare}
-                className="hover:text-zinc-300 bg-transparent border-0 p-0 cursor-pointer"
-              >
-                Share
-              </button>
+              <ShareButton threadId={threadId!} copyLink={copyLink} />
             </>
           }
         />
@@ -185,17 +176,11 @@ export default function Thread() {
       {/* Replies: original thread replies (Reply #n) and inline Q&A (You / AI) indented under the tweet they reply to */}
       <section className="divide-y divide-zinc-800/80">
         {replies.map((reply, i) => {
-          const isTyped = typeof reply === 'object' && reply !== null && 'type' in reply && 'content' in reply;
-          const body: string = isTyped
-            ? String((reply as { type: string; content: string }).content ?? '')
-            : String(reply);
-          const label = isTyped
-            ? (reply as { type: string }).type === 'user'
-              ? 'You'
-              : 'AI'
-            : 'Reply';
-          const meta = isTyped ? undefined : `#${i + 1}`;
-          const isReplyToTweet = isTyped;
+          const typed = isTypedReply(reply);
+          const body: string = typed ? String(reply.content ?? '') : String(reply);
+          const label = typed ? (reply.type === 'user' ? 'You' : 'AI') : 'Reply';
+          const meta = typed ? undefined : `#${i + 1}`;
+          const isReplyToTweet = typed;
           return (
           <article
             key={i}
@@ -220,13 +205,7 @@ export default function Thread() {
                       Reply
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={handleShare}
-                    className="hover:text-zinc-300 bg-transparent border-0 p-0 cursor-pointer"
-                  >
-                    Share
-                  </button>
+                  <ShareButton threadId={threadId!} copyLink={copyLink} />
                 </>
               }
             />

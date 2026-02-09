@@ -36,8 +36,9 @@ export function validateUuid(s: unknown): s is string {
 
 export function sanitizeForPrompt(str: string, maxLen: number): string {
   if (typeof str !== "string" || maxLen < 1) return "";
-  let out = str
+  const out = str
     .replace(/\r\n|\r|\n/g, " ")
+    /* eslint-disable-next-line no-control-regex -- strip ASCII control chars for prompts */
     .replace(/[\x00-\x1f\x7f]/g, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -46,6 +47,7 @@ export function sanitizeForPrompt(str: string, maxLen: number): string {
 
 export function sanitizeForDb(str: string, maxLen: number): string {
   if (typeof str !== "string" || maxLen < 1) return "";
+  /* eslint-disable-next-line no-control-regex -- strip ASCII control chars for DB */
   const out = str.replace(/[\x00-\x1f\x7f]/g, " ").replace(/\s+/g, " ").trim();
   return out.slice(0, maxLen);
 }

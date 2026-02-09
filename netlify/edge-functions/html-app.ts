@@ -7,8 +7,6 @@ import {
   layoutPublicThread,
 } from "./lib/html.ts";
 
-const FN = "html-app";
-
 function apiHeaders(req: Request): HeadersInit {
   const token = getTokenFromCookie(req);
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -54,7 +52,6 @@ export default async function handler(
   }
 
   const origin = url.origin;
-  const token = getTokenFromCookie(req);
   const userId = getUserId(req);
 
   // Prefer SPA when client has proven JS (cookie set by no-JS upgrade script).

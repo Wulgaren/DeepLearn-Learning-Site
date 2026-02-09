@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -93,7 +93,7 @@ export default function Layout() {
   const topicsActive = isTopics;
 
   useEffect(() => {
-    setMobileMenuOpen(false);
+    queueMicrotask(() => setMobileMenuOpen(false));
   }, [location.pathname]);
 
   function handleSearchSubmit(e: React.FormEvent) {
@@ -104,10 +104,10 @@ export default function Layout() {
     navigate('/topics', { state: { topic } });
   }
 
-  async function handleLogout() {
+  const handleLogout = useCallback(async () => {
     await supabase.auth.signOut();
     navigate('/login', { replace: true });
-  }
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-black text-zinc-100">

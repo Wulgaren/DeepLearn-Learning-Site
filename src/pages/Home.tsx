@@ -6,6 +6,7 @@ import { formatThreadDate } from '../lib/format';
 import { useCopyLink } from '../hooks/useCopyLink';
 import CopyLinkToast from '../components/CopyLinkToast';
 import PostRow from '../components/PostRow';
+import ShareButton from '../components/ShareButton';
 import type { ThreadSummary } from '../types';
 
 export default function Home() {
@@ -67,12 +68,6 @@ export default function Home() {
   function handleRemoveTag(tag: string) {
     const next = tags.filter((t) => t !== tag);
     setInterestsMutation.mutate(next);
-  }
-
-  function handleShare(e: React.MouseEvent, threadId: string) {
-    e.preventDefault();
-    e.stopPropagation();
-    void copyLink(threadId);
   }
 
   return (
@@ -143,7 +138,7 @@ export default function Home() {
           <div className="divide-y divide-zinc-800/80">
             {tweets.map((tweet, i) => (
               <PostRow
-                key={`${i}-${tweet.slice(0, 40)}`}
+                key={i}
                 as="link"
                 to={`/thread/new#${encodeURIComponent(tweet)}`}
                 label="For you"
@@ -172,15 +167,7 @@ export default function Home() {
                 meta={`${Array.isArray(thread.replies) ? thread.replies.length : 0} replies · ${formatThreadDate(thread.created_at)}`}
                 body={thread.main_post}
                 lineClamp={2}
-                actions={
-                  <button
-                    type="button"
-                    onClick={(e) => handleShare(e, thread.id)}
-                    className="hover:text-zinc-300"
-                  >
-                    Share
-                  </button>
-                }
+                actions={<ShareButton threadId={thread.id} copyLink={copyLink} stopPropagation />}
               />
             ))}
           </div>
