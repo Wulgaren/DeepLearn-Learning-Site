@@ -11,6 +11,15 @@ export interface ThreadSummary {
   created_at: string;
 }
 
+/** Art topic threads (saved works); may await on-disk AI until first view. */
+export interface ArtThreadSummary extends ThreadSummary {
+  main_image_url?: string | null;
+  catalog_url?: string | null;
+  art_source?: string | null;
+  art_external_id?: string | null;
+  expand_pending?: boolean;
+}
+
 /** Original thread reply (string) or inline Q&A (typed object) */
 export type ThreadReplyItem = string | { type: 'user' | 'ai'; content: string };
 
@@ -26,6 +35,12 @@ export interface Thread {
   created_at: string;
   /** Optional image shown above main post (e.g. artwork). */
   main_image_url?: string | null;
+  /** Museum / portal page; shown as “Open in catalog”, not duplicated in main_post. */
+  catalog_url?: string | null;
+  art_source?: string | null;
+  art_external_id?: string | null;
+  /** When true, AI replies are generated on first open (saved art before first visit). */
+  expand_pending?: boolean;
 }
 
 export interface FollowUp {

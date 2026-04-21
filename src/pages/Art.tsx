@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getArtCombinedPage } from '../lib/api';
-import { artworkToMainTweet } from '../lib/artTweet';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getArtCombinedPage, createThreadFromTweet, getArtThreads } from '../lib/api';
+import { artworkToMainTweet, catalogPageUrl } from '../lib/artTweet';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getErrorMessage } from '../lib/errors';
+import { formatThreadDate } from '../lib/format';
 import type { Artwork } from '../types/art';
+import type { ArtThreadSummary } from '../types';
 
 function workKey(a: Artwork): string {
   return `${a.source}:${a.id}`;
@@ -24,20 +26,6 @@ function metArtistUrl(a: Artwork): string | null {
   return `https://www.metmuseum.org/art/collection/search?q=${encodeURIComponent(label)}`;
 }
 
-/** Catalog URL for “open in new tab” / context menu; falls back per source when `objectUrl` is missing. */
-function catalogPageUrl(a: Artwork): string {
-  const u = a.objectUrl?.trim();
-  if (u) return u;
-  if (a.source === 'met' && /^\d+$/.test(a.id)) {
-    return `https://www.metmuseum.org/art/collection/object/${a.id}`;
-  }
-  if (a.source === 'wikidata' && /^Q\d+/.test(a.id)) {
-    return `https://www.wikidata.org/wiki/${a.id}`;
-  }
-  const q = encodeURIComponent((a.title || 'artwork').slice(0, 120));
-  return `https://www.europeana.eu/en/search?query=${q}`;
-}
-
 function openModalUnlessModifiedClick(
   e: React.MouseEvent<HTMLAnchorElement>,
   open: () => void
@@ -49,54 +37,183 @@ function openModalUnlessModifiedClick(
   open();
 }
 
+function ArtSidebar(props: {
+  europeanaQ: string;
+  setEuropeanaQ: (s: string) => void;
+  onSearchSubmit: (e: React.FormEvent) => void;
+  savedRowsArtists: { source: string; external_id: string; label: string | null }[];
+  artThreads: ArtThreadSummary[];
+  onShuffle: () => void;
+}) {
+  const { europeanaQ, setEuropeanaQ, onSearchSubmit, savedRowsArtists, artThreads, onShuffle } = props;
+  return (
+    <div className="space-y-4">
+      <form onSubmit={onSearchSubmit} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
+        <label className="block text-xs text-zinc-500 mb-1">Europeana search</label>
+        <div className="flex gap-2 flex-wrap">
+          <input
+            type="search"
+            value={europeanaQ}
+            onChange={(e) => setEuropeanaQ(e.target.value)}
+            placeholder="e.g. painting, photo"
+            className="flex-1 min-w-[120px] rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-full bg-zinc-100 text-black text-sm font-semibold hover:bg-white"
+          >
+            Search
+          </button>
+        </div>
+        <button
+          type="button"
+          className="mt-3 w-full px-3 py-2 rounded-full border border-zinc-700 text-sm text-zinc-300 hover:bg-zinc-900"
+          onClick={onShuffle}
+        >
+          Shuffle feed
+        </button>
+      </form>
+
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
+        <h3 className="m-0 text-sm font-semibold">Saved artwork threads</h3>
+        {artThreads.length === 0 ? (
+          <p className="m-0 mt-2 text-sm text-zinc-500">Star a work to save a thread (AI when you open it).</p>
+        ) : (
+          <ul className="mt-2 space-y-2 list-none p-0 m-0 max-h-[min(50vh,320px)] overflow-y-auto">
+            {artThreads.map((t) => (
+              <li key={t.id}>
+                <Link
+                  to={`/thread/${t.id}`}
+                  className="block rounded-lg px-2 py-2 hover:bg-zinc-900/80 no-underline text-inherit"
+                >
+                  <p className="m-0 text-sm text-zinc-200 line-clamp-2">{t.main_post}</p>
+                  <p className="m-0 mt-1 text-[10px] text-zinc-500">
+                    {t.expand_pending ? 'Pending · ' : ''}
+                    {formatThreadDate(t.created_at)}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
+        <h3 className="m-0 text-sm font-semibold">Saved artists</h3>
+        {savedRowsArtists.length === 0 ? (
+          <p className="m-0 mt-2 text-sm text-zinc-500">Save an artist from the detail modal.</p>
+        ) : (
+          <ul className="mt-2 space-y-1.5 list-none p-0 m-0 text-sm text-zinc-300">
+            {savedRowsArtists.map((r) => (
+              <li key={`${r.source}:${r.external_id}`} className="truncate">
+                {r.label ?? `${r.source} · ${r.external_id}`}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
 export default function Art() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const qApplied = searchParams.get('q')?.trim() || 'painting';
+  const [europeanaQ, setEuropeanaQ] = useState(qApplied);
+
+  useEffect(() => {
+    setEuropeanaQ(searchParams.get('q')?.trim() || 'painting');
+  }, [searchParams]);
+
   const [sessionSeed] = useState(() => crypto.randomUUID());
   const [shuffleKey, setShuffleKey] = useState(0);
   const feedSeed = `${sessionSeed}:${shuffleKey}`;
-  const [europeanaQ, setEuropeanaQ] = useState('painting');
-  const [europeanaApplied, setEuropeanaApplied] = useState('painting');
   const [selected, setSelected] = useState<Artwork | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const { data: savedRows } = useQuery({
-    queryKey: ['savedArtworks', user?.id],
+  const { data: artThreadsData } = useQuery({
+    queryKey: ['artThreads', user?.id],
+    queryFn: getArtThreads,
     enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('saved_artworks').select('source, external_id');
-      if (error) throw error;
-      return data ?? [];
-    },
   });
+
+  const threadIdByWork = useMemo(() => {
+    const list = artThreadsData?.threads ?? [];
+    const m = new Map<string, string>();
+    for (const t of list) {
+      if (t.art_source && t.art_external_id) {
+        m.set(`${t.art_source}:${t.art_external_id}`, t.id);
+      }
+    }
+    return m;
+  }, [artThreadsData?.threads]);
 
   const { data: savedArtistsRows } = useQuery({
     queryKey: ['savedArtists', user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.from('saved_artists').select('source, external_id');
+      const { data, error } = await supabase.from('saved_artists').select('source, external_id, label');
       if (error) throw error;
       return data ?? [];
     },
   });
 
-  const savedWorks = useMemo(
-    () => new Set((savedRows ?? []).map((r) => `${r.source}:${r.external_id}`)),
-    [savedRows]
-  );
   const savedArtists = useMemo(
     () => new Set((savedArtistsRows ?? []).map((r) => `${r.source}:${r.external_id}`)),
     [savedArtistsRows]
   );
 
+  const saveArtMutation = useMutation({
+    mutationFn: async ({
+      a,
+      save,
+      existingThreadId,
+    }: {
+      a: Artwork;
+      save: boolean;
+      existingThreadId?: string | null;
+    }) => {
+      if (!user) throw new Error('Sign in required');
+      if (save) {
+        await createThreadFromTweet({
+          tweet: artworkToMainTweet(a),
+          mainImageUrl:
+            a.imageUrl && /^https:\/\//i.test(a.imageUrl)
+              ? a.imageUrl
+              : a.thumbUrl && /^https:\/\//i.test(a.thumbUrl)
+                ? a.thumbUrl
+                : null,
+          catalogUrl: catalogPageUrl(a),
+          deferReplies: true,
+          artSource: a.source,
+          artExternalId: a.id,
+        });
+      } else {
+        const id = existingThreadId ?? null;
+        if (!id) return;
+        const { error } = await supabase.from('threads').delete().eq('id', id);
+        if (error) throw error;
+      }
+    },
+    onError: (e) => {
+      console.error(e);
+      alert(getErrorMessage(e));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['artThreads'] });
+    },
+  });
+
   const combinedQuery = useInfiniteQuery({
-    queryKey: ['artFeed', 'combined', feedSeed, europeanaApplied],
+    queryKey: ['artFeed', 'combined', feedSeed, qApplied],
     queryFn: ({ pageParam }) =>
       getArtCombinedPage({
         seed: feedSeed,
         cursor: pageParam,
-        q: europeanaApplied,
+        q: qApplied,
       }),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
@@ -123,40 +240,6 @@ export default function Art() {
     obs.observe(el);
     return () => obs.disconnect();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, items.length]);
-
-  const toggleSaveWork = useCallback(
-    async (a: Artwork) => {
-      if (!user) return;
-      const key = workKey(a);
-      try {
-        if (savedWorks.has(key)) {
-          const { error: err } = await supabase
-            .from('saved_artworks')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('source', a.source)
-            .eq('external_id', a.id);
-          if (err) throw err;
-        } else {
-          const { error: err } = await supabase.from('saved_artworks').upsert(
-            {
-              user_id: user.id,
-              source: a.source,
-              external_id: a.id,
-              snapshot: a as unknown as Record<string, unknown>,
-            },
-            { onConflict: 'user_id,source,external_id' }
-          );
-          if (err) throw err;
-        }
-        await queryClient.invalidateQueries({ queryKey: ['savedArtworks', user.id] });
-      } catch (e) {
-        console.error(e);
-        alert(getErrorMessage(e));
-      }
-    },
-    [queryClient, savedWorks, user]
-  );
 
   const toggleSaveArtist = useCallback(
     async (a: Artwork) => {
@@ -199,131 +282,155 @@ export default function Art() {
     [queryClient, savedArtists, user]
   );
 
+  function applySearch(e: React.FormEvent) {
+    e.preventDefault();
+    const next = new URLSearchParams(searchParams);
+    next.set('q', europeanaQ.trim() || 'painting');
+    setSearchParams(next);
+  }
+
   function learnMore(a: Artwork) {
     if (!user) return;
     const tweet = artworkToMainTweet(a);
     const mainImageUrl = a.imageUrl ?? a.thumbUrl ?? null;
     const safeImage =
       mainImageUrl && /^https:\/\//i.test(mainImageUrl) ? mainImageUrl : null;
+    const catalogUrl = catalogPageUrl(a);
     navigate('/thread/new', {
-      state: { tweet, mainImageUrl: safeImage },
+      state: {
+        tweet,
+        mainImageUrl: safeImage,
+        catalogUrl,
+        artSource: a.source,
+        artExternalId: a.id,
+      },
     });
   }
 
+  function threadNewHrefForArtwork(a: Artwork): string {
+    const tweet = artworkToMainTweet(a);
+    const mainImageUrl = a.imageUrl ?? a.thumbUrl ?? null;
+    const safeImage =
+      mainImageUrl && /^https:\/\//i.test(mainImageUrl) ? mainImageUrl : null;
+    const catalogUrl = catalogPageUrl(a);
+    const qs = new URLSearchParams();
+    if (safeImage) qs.set('img', safeImage);
+    if (catalogUrl) qs.set('catalog', catalogUrl);
+    qs.set('artSource', a.source);
+    qs.set('artId', a.id);
+    const qstr = qs.toString();
+    return `/thread/new?${qstr}#${encodeURIComponent(tweet)}`;
+  }
+
+  const sidebar = (
+    <ArtSidebar
+      europeanaQ={europeanaQ}
+      setEuropeanaQ={setEuropeanaQ}
+      onSearchSubmit={applySearch}
+      savedRowsArtists={(savedArtistsRows ?? []) as { source: string; external_id: string; label: string | null }[]}
+      artThreads={artThreadsData?.threads ?? []}
+      onShuffle={() => setShuffleKey((k) => k + 1)}
+    />
+  );
+
   return (
-    <div className="py-6 max-w-4xl mx-auto">
-      <p className="text-zinc-400 text-sm m-0 mb-4">
-        Open-access art from The Met, Europeana, and Wikidata in one feed. Rights vary by record; check attribution on
-        each work.
-      </p>
+    <div className="py-4 lg:py-6 max-w-6xl mx-auto">
+      <div className="lg:hidden mb-6">{sidebar}</div>
 
-      <div className="flex flex-wrap gap-2 items-center mb-4">
-        <form
-          className="flex flex-wrap gap-2 items-center flex-1 min-w-[200px]"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setEuropeanaApplied(europeanaQ.trim() || 'painting');
-          }}
-        >
-          <input
-            type="search"
-            value={europeanaQ}
-            onChange={(e) => setEuropeanaQ(e.target.value)}
-            placeholder="Europeana search (e.g. painting, photo)"
-            className="flex-1 min-w-[200px] rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2 text-sm outline-none focus:border-zinc-600"
-          />
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-full bg-zinc-100 text-black text-sm font-semibold hover:bg-white"
-          >
-            Search
-          </button>
-        </form>
-        <button
-          type="button"
-          className="px-4 py-2 rounded-full border border-zinc-700 text-sm text-zinc-300 hover:bg-zinc-900"
-          onClick={() => setShuffleKey((k) => k + 1)}
-        >
-          Shuffle feed
-        </button>
-      </div>
-
-      {error && (
-        <div className="rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200 mb-4">
-          {getErrorMessage(error)}
-          {String(getErrorMessage(error)).includes('not configured') && (
-            <span> Add EUROPEANA_API_KEY to Netlify env (see README).</span>
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-8 lg:items-start">
+        <div className="min-w-0">
+          {error && (
+            <div className="rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200 mb-4">
+              {getErrorMessage(error)}
+              {String(getErrorMessage(error)).includes('not configured') && (
+                <span> Add EUROPEANA_API_KEY to Netlify env (see README).</span>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
-      {isLoading && <p className="text-zinc-500">Loading…</p>}
+          {isLoading && <p className="text-zinc-500">Loading…</p>}
 
-      {!isLoading && !error && items.length === 0 && (
-        <p className="text-zinc-500">No items returned. Try Shuffle feed or another search.</p>
-      )}
+          {!isLoading && !error && items.length === 0 && (
+            <p className="text-zinc-500">No items returned. Try Shuffle or another search.</p>
+          )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {items.map((a) => {
-          const thumb = a.thumbUrl ?? a.imageUrl;
-          const wk = workKey(a);
-          const ak = artistKey(a);
-          const isSaved = savedWorks.has(wk);
-          const artistSaved = ak ? savedArtists.has(ak) : false;
-          const href = catalogPageUrl(a);
-          return (
-            <a
-              key={wk}
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              tabIndex={0}
-              onClick={(e) => openModalUnlessModifiedClick(e, () => setSelected(a))}
-              onKeyDown={(ev) => {
-                if (ev.key === 'Enter' || ev.key === ' ') {
-                  ev.preventDefault();
-                  setSelected(a);
-                }
-              }}
-              className="group text-left rounded-2xl border border-zinc-800 bg-zinc-950/80 overflow-hidden hover:border-zinc-600 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 cursor-pointer no-underline text-inherit block"
-            >
-              <div className="aspect-square bg-zinc-900 relative">
-                {thumb ? (
-                  <img src={thumb} alt="" className="w-full h-full object-cover" loading="lazy" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs p-2">No image</div>
-                )}
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                  <button
-                    type="button"
-                    className="text-[10px] px-2 py-1 rounded-full bg-black/70 text-zinc-200"
-                    onClick={(ev) => {
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {items.map((a) => {
+              const thumb = a.thumbUrl ?? a.imageUrl;
+              const wk = workKey(a);
+              const ak = artistKey(a);
+              const isSaved = Boolean(user && threadIdByWork.has(wk));
+              const artistSaved = ak ? savedArtists.has(ak) : false;
+              const href = user ? threadNewHrefForArtwork(a) : catalogPageUrl(a);
+              return (
+                <a
+                  key={wk}
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  tabIndex={0}
+                  onClick={(e) => openModalUnlessModifiedClick(e, () => setSelected(a))}
+                  onKeyDown={(ev) => {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
                       ev.preventDefault();
-                      ev.stopPropagation();
-                      void toggleSaveWork(a);
-                    }}
-                  >
-                    {isSaved ? '★' : '☆'}
-                  </button>
-                </div>
-              </div>
-              <div className="p-3 min-w-0">
-                <p className="m-0 text-sm font-medium text-zinc-100 line-clamp-2">{a.title}</p>
-                {a.artist?.label && (
-                  <p className="m-0 mt-1 text-xs text-zinc-500 line-clamp-1">{a.artist.label}</p>
-                )}
-                <p className="m-0 mt-2 text-[10px] text-zinc-600 line-clamp-2">
-                  {a.attribution ?? a.source}
-                  {artistSaved ? ' · artist saved' : ''}
-                </p>
-              </div>
-            </a>
-          );
-        })}
-      </div>
+                      setSelected(a);
+                    }
+                  }}
+                  className="group text-left rounded-2xl border border-zinc-800 bg-zinc-950/80 overflow-hidden hover:border-zinc-600 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 cursor-pointer no-underline text-inherit block"
+                >
+                  <div className="aspect-square bg-zinc-900 relative">
+                    {thumb ? (
+                      <img src={thumb} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs p-2">
+                        No image
+                      </div>
+                    )}
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                      <button
+                        type="button"
+                        className="text-[10px] px-2 py-1 rounded-full bg-black/70 text-zinc-200 disabled:opacity-40"
+                        disabled={!user || saveArtMutation.isPending}
+                        onClick={(ev) => {
+                          ev.preventDefault();
+                          ev.stopPropagation();
+                          if (!user) return;
+                          saveArtMutation.mutate({
+                            a,
+                            save: !isSaved,
+                            existingThreadId: isSaved ? threadIdByWork.get(wk) : null,
+                          });
+                        }}
+                        title={isSaved ? 'Remove saved thread' : 'Save as thread'}
+                      >
+                        {isSaved ? '★' : '☆'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-3 min-w-0">
+                    <p className="m-0 text-sm font-medium text-zinc-100 line-clamp-2">{a.title}</p>
+                    {a.artist?.label && (
+                      <p className="m-0 mt-1 text-xs text-zinc-500 line-clamp-1">{a.artist.label}</p>
+                    )}
+                    <p className="m-0 mt-2 text-[10px] text-zinc-600 line-clamp-2">
+                      {a.attribution ?? a.source}
+                      {artistSaved ? ' · artist saved' : ''}
+                    </p>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
 
-      <div ref={loadMoreRef} className="h-8 mt-6 flex items-center justify-center text-zinc-500 text-sm">
-        {isFetchingNextPage ? 'Loading more…' : hasNextPage ? '' : items.length > 0 ? 'End' : ''}
+          <div
+            ref={loadMoreRef}
+            className="h-8 mt-6 flex items-center justify-center text-zinc-500 text-sm"
+          >
+            {isFetchingNextPage ? 'Loading more…' : hasNextPage ? '' : items.length > 0 ? 'End' : ''}
+          </div>
+        </div>
+
+        <aside className="hidden lg:block min-w-0">{sidebar}</aside>
       </div>
 
       {selected && (
@@ -403,10 +510,16 @@ export default function Art() {
                 <button
                   type="button"
                   className="px-4 py-2 rounded-full bg-zinc-100 text-black text-sm font-semibold hover:bg-white disabled:opacity-50"
-                  disabled={!user}
-                  onClick={() => void toggleSaveWork(selected)}
+                  disabled={!user || saveArtMutation.isPending}
+                  onClick={() =>
+                    saveArtMutation.mutate({
+                      a: selected,
+                      save: !threadIdByWork.has(workKey(selected)),
+                      existingThreadId: threadIdByWork.get(workKey(selected)),
+                    })
+                  }
                 >
-                  {savedWorks.has(workKey(selected)) ? 'Saved' : 'Save work'}
+                  {threadIdByWork.has(workKey(selected)) ? 'Saved as thread' : 'Save as thread'}
                 </button>
                 <button
                   type="button"
@@ -426,7 +539,7 @@ export default function Art() {
                 </button>
               </div>
               {!user && (
-                <p className="m-0 text-xs text-amber-200/90">Sign in to save works, learn more, and open threads.</p>
+                <p className="m-0 text-xs text-amber-200/90">Sign in to save threads and use Learn more.</p>
               )}
             </div>
           </div>

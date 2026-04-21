@@ -19,6 +19,16 @@ create table if not exists public.threads (
 
 -- Optional hero image for thread main post (e.g. art “learn more” flows). Safe to run on existing DBs:
 alter table public.threads add column if not exists main_image_url text;
+-- External source page (museum / Europeana / Wikidata), shown as “Open in catalog” — not inlined in main_post:
+alter table public.threads add column if not exists catalog_url text;
+-- Art feed: one row per saved artwork (see art topic); AI replies generated on first open when expand_pending:
+alter table public.threads add column if not exists art_source text;
+alter table public.threads add column if not exists art_external_id text;
+alter table public.threads add column if not exists expand_pending boolean not null default false;
+
+create unique index if not exists threads_art_dedupe_idx
+  on public.threads (topic_id, art_source, art_external_id)
+  where art_source is not null and art_external_id is not null;
 
 -- Follow-up Q&A within a thread
 create table if not exists public.follow_ups (
@@ -93,6 +103,12 @@ create policy "Users can view threads of own topics"
 create policy "Users can insert threads for own topics"
   on public.threads for insert
   with check (
+    exists (select 1 from public.topics t where t.id = topic_id and t.user_id = auth.uid())
+  );
+
+create policy "Users can delete threads for own topics"
+  on public.threads for delete
+  using (
     exists (select 1 from public.topics t where t.id = topic_id and t.user_id = auth.uid())
   );
 

@@ -122,7 +122,13 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-black text-zinc-100">
       <div className="mx-auto w-full max-w-6xl px-4">
-        <div className={`grid gap-6 ${isPublicThread ? 'grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]' : 'grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_320px]'}`}>
+        <div
+          className={`grid gap-6 ${
+            isPublicThread || isArt
+              ? 'grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]'
+              : 'grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_320px]'
+          }`}
+        >
           {/* Left sidebar – logo always; nav + account or Sign in (desktop) */}
           <aside className="hidden lg:block sticky top-0 h-screen py-4">
             <div className="flex h-full flex-col">
@@ -200,8 +206,8 @@ export default function Layout() {
             </div>
           </main>
 
-          {/* Right sidebar – hidden for public thread view */}
-          {!isPublicThread && (
+          {/* Right sidebar – hidden for public thread view and Art (Art page has its own rail) */}
+          {!isPublicThread && !isArt && (
           <aside className="hidden lg:block sticky top-0 h-screen py-4">
             <div className="space-y-4">
               <form onSubmit={handleSearchSubmit} className="rounded-full border border-zinc-800 bg-zinc-950/60 px-4 py-2">

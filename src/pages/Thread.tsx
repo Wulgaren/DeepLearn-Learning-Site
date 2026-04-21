@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getThread, askThread } from '../lib/api';
+import { getThread, askThread, expandThreadReplies } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
 import { useCopyLink } from '../hooks/useCopyLink';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,6 +40,14 @@ export default function Thread() {
     queryKey: ['thread', threadId],
     queryFn: () => getThread(threadId!),
     enabled: !!threadId,
+  });
+
+  const expandMutation = useMutation({
+    mutationFn: () => expandThreadReplies(threadId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['thread', threadId] });
+      queryClient.invalidateQueries({ queryKey: ['artThreads'] });
+    },
   });
 
   const askMutation = useMutation({
@@ -85,9 +93,35 @@ export default function Thread() {
     queueMicrotask(() => setScrollToReplyIndex(null));
   }, [scrollToReplyIndex]);
 
+  const autoExpandStarted = useRef(false);
+
+  useEffect(() => {
+    expandMutation.reset();
+    autoExpandStarted.current = false;
+  }, [threadId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!data?.thread?.expand_pending || autoExpandStarted.current) return;
+    autoExpandStarted.current = true;
+    expandMutation.mutate();
+  }, [data?.thread?.expand_pending]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const error =
     (threadError != null ? getErrorMessage(threadError) : undefined) ??
     (askMutation.error != null ? getErrorMessage(askMutation.error) : undefined);
+  const expandError =
+    expandMutation.error != null ? getErrorMessage(expandMutation.error) : undefined;
+
+  if (loading) return <p className="py-4 text-zinc-500">Loading thread…</p>;
+  if (threadError && !data) return <p className="py-4 text-red-400">{error}</p>;
+  if (!data) return null;
+
+  const { thread } = data;
+  const replies: ThreadReplyItem[] = Array.isArray(thread.replies) ? thread.replies : [];
+  const replyMeta =
+    expandMutation.isPending || (Boolean(thread.expand_pending) && !expandMutation.isError)
+      ? 'Generating replies…'
+      : `${replies.length} replies`;
 
   function handleAsk(e: React.FormEvent) {
     e.preventDefault();
@@ -102,13 +136,6 @@ export default function Thread() {
         : undefined;
     askMutation.mutate({ q, replyContext, replyIndex: replyFormAnchor });
   }
-
-  if (loading) return <p className="py-4 text-zinc-500">Loading thread…</p>;
-  if (threadError && !data) return <p className="py-4 text-red-400">{error}</p>;
-  if (!data) return null;
-
-  const { thread } = data;
-  const replies: ThreadReplyItem[] = Array.isArray(thread.replies) ? thread.replies : [];
 
   return (
     <div className="pb-16">
@@ -128,7 +155,7 @@ export default function Thread() {
         <PostRow
           as="div"
           label="Thread"
-          meta={`${replies.length} replies`}
+          meta={replyMeta}
           body={thread.main_post}
           bodyClassName="mt-2 text-[1.05rem] leading-relaxed whitespace-pre-wrap break-words text-zinc-100"
           actionClassName="mt-4 flex items-center gap-6 text-xs text-zinc-500"
@@ -143,14 +170,40 @@ export default function Thread() {
                   Reply
                 </button>
               )}
+              {thread.catalog_url && /^https:\/\//i.test(thread.catalog_url) && (
+                <a
+                  href={thread.catalog_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-zinc-300 text-inherit no-underline"
+                >
+                  Open in catalog
+                </a>
+              )}
               <ShareButton threadId={threadId!} copyLink={copyLink} />
             </>
           }
         />
+        {expandMutation.isError && (
+          <div className="px-1 mt-3 rounded-lg border border-red-900/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+            <p className="m-0">{expandError ?? 'Could not generate replies.'}</p>
+            <button
+              type="button"
+              className="mt-2 px-3 py-1 rounded-full border border-zinc-600 text-xs hover:bg-zinc-900"
+              onClick={() => {
+                autoExpandStarted.current = false;
+                expandMutation.reset();
+                expandMutation.mutate();
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
       </article>
 
       {/* Ask box – under main post when anchor is null (logged in only) */}
-      {user && replyFormAnchor === null && (
+      {user && replyFormAnchor === null && !thread.expand_pending && (
         <section className="px-1 py-4 pb-8 border-b border-zinc-800/80">
           <form onSubmit={handleAsk} className="flex gap-3">
             <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-400 shrink-0">

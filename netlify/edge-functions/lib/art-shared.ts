@@ -213,6 +213,9 @@ function mapEuropeanaItem(it: Record<string, unknown>, _index: number): Normaliz
     firstString((it as { dcCreatorLangAware?: { def?: string[] } }).dcCreatorLangAware?.def?.[0]);
   const dataProvider = firstString((it as { dataProvider?: string[] }).dataProvider);
   const rights = firstString(it.rights) ?? "See record for rights.";
+  const dcDesc =
+    firstString(it.dcDescription) ??
+    firstString((it as { dcDescriptionLangAware?: { def?: string[] } }).dcDescriptionLangAware?.def?.[0]);
   const guid =
     typeof it.guid === "string"
       ? it.guid
@@ -225,7 +228,7 @@ function mapEuropeanaItem(it: Record<string, unknown>, _index: number): Normaliz
     title,
     imageUrl: preview,
     thumbUrl: preview,
-    description: dataProvider ?? null,
+    description: dcDesc ?? null,
     rights,
     attribution: dataProvider ? `Europeana — ${dataProvider}` : "Europeana",
     objectUrl: guid,

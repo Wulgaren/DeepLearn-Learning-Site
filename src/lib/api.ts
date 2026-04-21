@@ -4,9 +4,11 @@ import type {
   GetThreadResponse,
   AskThreadResponse,
   ThreadSummary,
+  ArtThreadSummary,
 } from '../types';
 import type {
   ArtCombinedPageResponse,
+  ArtSource,
   ArtEuropeanaPageResponse,
   ArtMetPageResponse,
   ArtWikidataPageResponse,
@@ -119,6 +121,11 @@ export async function getHomeTweets(): Promise<{ tweets: string[] }> {
 export async function createThreadFromTweet(body: {
   tweet: string;
   mainImageUrl?: string | null;
+  catalogUrl?: string | null;
+  /** Save-for-later only: create shell, no AI until open. */
+  deferReplies?: boolean;
+  artSource?: ArtSource;
+  artExternalId?: string;
 }): Promise<{ threadId: string }> {
   return withOneRetry(() =>
     apiFetch<{ threadId: string }>(`${API_BASE}/api/thread-from-tweet`, {
@@ -126,9 +133,30 @@ export async function createThreadFromTweet(body: {
       body: JSON.stringify({
         tweet: body.tweet,
         ...(body.mainImageUrl ? { mainImageUrl: body.mainImageUrl } : {}),
+        ...(body.catalogUrl ? { catalogUrl: body.catalogUrl } : {}),
+        ...(body.deferReplies ? { deferReplies: true } : {}),
+        ...(body.artSource ? { artSource: body.artSource } : {}),
+        ...(body.artExternalId ? { artExternalId: body.artExternalId } : {}),
       }),
     })
   );
+}
+
+export async function expandThreadReplies(threadId: string): Promise<{
+  expanded: boolean;
+  reason?: string;
+  replyCount?: number;
+}> {
+  return withOneRetry(() =>
+    apiFetch<{ expanded: boolean; reason?: string; replyCount?: number }>(
+      `${API_BASE}/api/thread-expand-replies`,
+      { method: 'POST', body: JSON.stringify({ threadId }) }
+    )
+  );
+}
+
+export async function getArtThreads(): Promise<{ threads: ArtThreadSummary[] }> {
+  return apiFetch<{ threads: ArtThreadSummary[] }>(`${API_BASE}/api/art-threads`);
 }
 
 export async function getArtCombinedPage(opts: {
