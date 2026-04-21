@@ -185,7 +185,7 @@ export default function Thread() {
                   href={thread.catalog_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-white no-underline hover:underline hover:text-zinc-200"
+                  className="inline-flex items-center gap-1 bg-transparent p-0 cursor-pointer text-inherit no-underline hover:text-zinc-300"
                 >
                   Open in catalog
                   <span aria-hidden className="text-sm leading-none">

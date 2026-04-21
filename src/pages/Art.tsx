@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { useQuery } from '@tanstack/react-query';
-import { getArtCombinedPage } from '../lib/api';
+import { getArtEuropeanaPage, getArtMetPage, getArtWikidataPage } from '../lib/api';
+import { getArtFeedInitialParams } from '../lib/artFeedInitialParams';
 import { catalogPageUrl } from '../lib/artTweet';
 import { openModalUnlessModifiedClick } from '../lib/artModal';
 import { getErrorMessage } from '../lib/errors';
@@ -11,6 +12,14 @@ import { artistKey, threadNewHrefForArtwork, workKey } from '../lib/artRouteUtil
 import type { Artwork } from '../types/art';
 import ArtRightRail from '../components/ArtRightRail';
 import ArtworkDetailModal from '../components/ArtworkDetailModal';
+
+const feedGc = {
+  staleTime: Infinity,
+  gcTime: 1000 * 60 * 60 * 24,
+  refetchOnWindowFocus: false,
+};
+
+type SourceKey = 'met' | 'europeana' | 'wikidata';
 
 export default function Art() {
   useDocumentTitle('Art');
@@ -25,30 +34,88 @@ export default function Art() {
 
   const [selected, setSelected] = useState<Artwork | null>(null);
 
-  const feedQuery = useQuery({
-    // feedSeed from sessionStorage (see artFeedSeed.ts) so cache survives provider unmount / thread nav.
-    queryKey: ['artFeed', 'combined', feedSeed, qApplied],
-    queryFn: () =>
-      getArtCombinedPage({
-        seed: feedSeed,
-        cursor: null,
-        q: qApplied,
-      }),
-    staleTime: Infinity,
-    gcTime: 1000 * 60 * 60 * 24,
-    refetchOnWindowFocus: false,
+  const initialParams = useMemo(
+    () => getArtFeedInitialParams(feedSeed, qApplied),
+    [feedSeed, qApplied]
+  );
+
+  const [arrivalAt, setArrivalAt] = useState<Partial<Record<SourceKey, number>>>({});
+
+  useEffect(() => {
+    setArrivalAt({});
+  }, [feedSeed, qApplied]);
+
+  const [metQ, euQ, wdQ] = useQueries({
+    queries: [
+      {
+        queryKey: ['artFeed', 'met', feedSeed, qApplied],
+        queryFn: () => getArtMetPage(initialParams.metPage),
+        ...feedGc,
+      },
+      {
+        queryKey: ['artFeed', 'europeana', feedSeed, qApplied],
+        queryFn: () => getArtEuropeanaPage(null, initialParams.europeanaQ),
+        ...feedGc,
+      },
+      {
+        queryKey: ['artFeed', 'wikidata', feedSeed, qApplied],
+        queryFn: () => getArtWikidataPage(initialParams.wdPage),
+        ...feedGc,
+      },
+    ],
   });
 
-  const feedItems = feedQuery.data?.items;
-  const items = feedItems ?? [];
   useEffect(() => {
-    if (!feedItems?.length) return;
+    if (metQ.isSuccess && metQ.data) {
+      setArrivalAt((a) => (a.met !== undefined ? a : { ...a, met: performance.now() }));
+    }
+  }, [metQ.isSuccess, metQ.data]);
+
+  useEffect(() => {
+    if (euQ.isSuccess && euQ.data) {
+      setArrivalAt((a) =>
+        a.europeana !== undefined ? a : { ...a, europeana: performance.now() }
+      );
+    }
+  }, [euQ.isSuccess, euQ.data]);
+
+  useEffect(() => {
+    if (wdQ.isSuccess && wdQ.data) {
+      setArrivalAt((a) => (a.wikidata !== undefined ? a : { ...a, wikidata: performance.now() }));
+    }
+  }, [wdQ.isSuccess, wdQ.data]);
+
+  const feedItems = useMemo(() => {
+    const parts: { t: number; items: Artwork[] }[] = [];
+    if (arrivalAt.met !== undefined && metQ.data?.items) {
+      parts.push({ t: arrivalAt.met, items: metQ.data.items });
+    }
+    if (arrivalAt.europeana !== undefined && euQ.data?.items) {
+      parts.push({ t: arrivalAt.europeana, items: euQ.data.items });
+    }
+    if (arrivalAt.wikidata !== undefined && wdQ.data?.items) {
+      parts.push({ t: arrivalAt.wikidata, items: wdQ.data.items });
+    }
+    parts.sort((x, y) => x.t - y.t);
+    return parts.flatMap((p) => p.items);
+  }, [arrivalAt, metQ.data, euQ.data, wdQ.data]);
+
+  const items = feedItems;
+
+  useEffect(() => {
+    if (!feedItems.length) return;
     prefetchArtFullResForPopup(feedItems);
   }, [feedItems]);
-  const isLoading = feedQuery.isLoading;
-  const isFetching = feedQuery.isFetching;
-  const error = feedQuery.error;
-  const showSkeleton = !error && items.length === 0 && (isLoading || isFetching);
+
+  const allDone = !metQ.isPending && !euQ.isPending && !wdQ.isPending;
+  const blockingError =
+    allDone && items.length === 0 && metQ.isError && euQ.isError && wdQ.isError;
+  const showSkeleton =
+    !blockingError && items.length === 0 && (metQ.isPending || euQ.isPending || wdQ.isPending);
+  const euMissingKey =
+    !blockingError &&
+    euQ.isError &&
+    String(getErrorMessage(euQ.error)).toLowerCase().includes('not configured');
 
   return (
     <div className="pb-10">
@@ -56,16 +123,23 @@ export default function Art() {
         <ArtRightRail compactRail />
       </div>
 
-      {error && (
+      {blockingError && (
         <div className="rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200 mb-4">
-          {getErrorMessage(error)}
-          {String(getErrorMessage(error)).includes('not configured') && (
+          {getErrorMessage(metQ.error ?? euQ.error ?? wdQ.error)}
+          {String(getErrorMessage(metQ.error ?? euQ.error ?? wdQ.error)).includes('not configured') && (
             <span> Add EUROPEANA_API_KEY to Netlify env (see README).</span>
           )}
         </div>
       )}
 
-      {!error && !showSkeleton && items.length === 0 && (
+      {!blockingError && euMissingKey && (
+        <div className="rounded-xl border border-amber-900/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100/90 mb-4">
+          Europeana unavailable (not configured). Met and Wikidata still load.
+          <span className="text-amber-200/80"> Add EUROPEANA_API_KEY to Netlify env (see README).</span>
+        </div>
+      )}
+
+      {!blockingError && !showSkeleton && items.length === 0 && allDone && (
         <p className="text-zinc-500 text-sm mb-4">No items returned. Try Shuffle or another search.</p>
       )}
 

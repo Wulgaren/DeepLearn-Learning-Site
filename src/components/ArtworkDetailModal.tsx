@@ -210,10 +210,10 @@ export default function ArtworkDetailModal({
               href={selected.objectUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-sm text-white hover:underline"
+              className="inline-flex items-center gap-1 text-sm text-white no-underline hover:text-zinc-100"
             >
               Open in catalog
-              <span aria-hidden className="text-base leading-none">
+              <span aria-hidden className="text-base leading-none text-white">
                 →
               </span>
             </a>

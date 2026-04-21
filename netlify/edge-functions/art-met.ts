@@ -1,6 +1,6 @@
 import type { Config, Context } from "@netlify/edge-functions";
 import { fetchMetPage } from "./lib/art-shared.ts";
-import { clampWikidataPage } from "./lib/art-limits.ts";
+import { clampArtCombinedMetPage } from "./lib/art-limits.ts";
 import { corsHeaders, getUserId, jsonResponse, log } from "./lib/shared.ts";
 
 const FN = "art-met";
@@ -21,7 +21,7 @@ export default async function handler(req: Request, _context: Context): Promise<
   const url = new URL(req.url);
   const pageRaw = url.searchParams.get("page");
   const parsed = parseInt(pageRaw ?? "0", 10);
-  const page = clampWikidataPage(Number.isFinite(parsed) ? parsed : 0);
+  const page = clampArtCombinedMetPage(Number.isFinite(parsed) ? parsed : 0);
 
   try {
     const { items, nextPage } = await fetchMetPage(page);
