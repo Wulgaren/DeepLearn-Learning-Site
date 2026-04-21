@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Link, Outlet, useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { getThread } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import ArtRightRail from './ArtRightRail';
 
@@ -92,6 +94,7 @@ export default function Layout() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { threadId } = useParams();
   const [searchTopic, setSearchTopic] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isTopics = location.pathname.startsWith('/topics');
@@ -99,6 +102,15 @@ export default function Layout() {
   const isThread = location.pathname.startsWith('/thread/');
   const isNewThreadRoute = location.pathname === '/thread/new';
   const isThreadDetail = isThread && !isNewThreadRoute;
+  const { data: threadPeek } = useQuery({
+    queryKey: ['thread', threadId],
+    queryFn: () => getThread(threadId!),
+    enabled: Boolean(threadId && isThreadDetail),
+  });
+  const isArtThread = Boolean(
+    threadPeek?.thread?.art_source && threadPeek?.thread?.art_external_id
+  );
+  const showArtRail = isArt || isArtThread;
   const isPublicThread = isThread && !user;
   const isArtArtist = location.pathname.startsWith('/art/artist/');
   const navState = location.state as { from?: string } | null;
@@ -225,7 +237,7 @@ export default function Layout() {
           {/* Right sidebar – Art uses ArtRightRail; Home/topics use tips */}
           {!isPublicThread && (
             <aside className="hidden lg:block sticky top-0 h-screen py-4">
-              {isArt ? (
+              {showArtRail ? (
                 <ArtRightRail />
               ) : (
                 <div className="space-y-4">

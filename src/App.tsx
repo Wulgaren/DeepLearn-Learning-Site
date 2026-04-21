@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ArtRouteProvider } from './contexts/ArtRouteContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ConditionalArtRouteLayout from './components/ConditionalArtRouteLayout';
 import Layout from './components/Layout';
@@ -29,7 +30,7 @@ function App() {
           >
             <Route index element={<NewThread />} />
           </Route>
-          <Route path="/thread/:threadId" element={<Layout />}>
+          <Route path="/thread/:threadId" element={<ArtRouteProvider><Layout /></ArtRouteProvider>}>
             <Route index element={<Thread />} />
           </Route>
           <Route

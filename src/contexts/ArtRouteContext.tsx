@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createThreadFromTweet, getArtThreads } from '../lib/api';
 import { artworkToMainTweet, catalogPageUrl } from '../lib/artTweet';
@@ -51,6 +51,8 @@ const ArtRouteContext = createContext<ArtRouteContextValue | null>(null);
 export function ArtRouteProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const qApplied = searchParams.get('q')?.trim() || 'painting';
   const [europeanaQ, setEuropeanaQ] = useState(qApplied);
@@ -171,12 +173,20 @@ export function ArtRouteProvider({ children }: { children: ReactNode }) {
     [queryClient, savedArtists, user]
   );
 
-  function applySearch(e: React.FormEvent) {
-    e.preventDefault();
-    const next = new URLSearchParams(searchParams);
-    next.set('q', europeanaQ.trim() || 'painting');
-    setSearchParams(next);
-  }
+  const applySearch = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const q = europeanaQ.trim() || 'painting';
+      if (location.pathname.startsWith('/art')) {
+        const next = new URLSearchParams(searchParams);
+        next.set('q', q);
+        setSearchParams(next);
+      } else {
+        navigate({ pathname: '/art', search: `?q=${encodeURIComponent(q)}` });
+      }
+    },
+    [europeanaQ, searchParams, setSearchParams, navigate, location.pathname]
+  );
 
   const value: ArtRouteContextValue = {
     user,

@@ -153,7 +153,7 @@ export default function Thread() {
       {/* Main post */}
       <article className="border-b border-zinc-800/80">
         {thread.main_image_url && /^https:\/\//i.test(thread.main_image_url) && (
-          <div className="px-1 pb-3">
+          <div className="px-1 pt-4 pb-3">
             <img
               src={thread.main_image_url}
               alt=""
