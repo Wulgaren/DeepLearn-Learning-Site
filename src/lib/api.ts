@@ -6,10 +6,9 @@ import type {
   ThreadSummary,
 } from '../types';
 import type {
-  ArtAskResponse,
+  ArtCombinedPageResponse,
   ArtEuropeanaPageResponse,
   ArtMetPageResponse,
-  Artwork,
   ArtWikidataPageResponse,
 } from '../types/art';
 
@@ -117,13 +116,32 @@ export async function getHomeTweets(): Promise<{ tweets: string[] }> {
   });
 }
 
-export async function createThreadFromTweet(tweet: string): Promise<{ threadId: string }> {
+export async function createThreadFromTweet(body: {
+  tweet: string;
+  mainImageUrl?: string | null;
+}): Promise<{ threadId: string }> {
   return withOneRetry(() =>
     apiFetch<{ threadId: string }>(`${API_BASE}/api/thread-from-tweet`, {
       method: 'POST',
-      body: JSON.stringify({ tweet }),
+      body: JSON.stringify({
+        tweet: body.tweet,
+        ...(body.mainImageUrl ? { mainImageUrl: body.mainImageUrl } : {}),
+      }),
     })
   );
+}
+
+export async function getArtCombinedPage(opts: {
+  seed: string;
+  cursor: string | null;
+  q: string;
+}): Promise<ArtCombinedPageResponse> {
+  const params = new URLSearchParams();
+  params.set('seed', opts.seed);
+  if (opts.cursor) params.set('cursor', opts.cursor);
+  if (opts.q.trim()) params.set('q', opts.q.trim());
+  const qs = params.toString();
+  return apiFetch<ArtCombinedPageResponse>(`${API_BASE}/api/art-combined?${qs}`);
 }
 
 export async function getHomeThreads(): Promise<{ threads: ThreadSummary[] }> {
@@ -150,11 +168,3 @@ export async function getArtWikidataPage(page: number): Promise<ArtWikidataPageR
   );
 }
 
-export async function askAboutArtwork(artwork: Artwork, question: string): Promise<ArtAskResponse> {
-  return withOneRetry(() =>
-    apiFetch<ArtAskResponse>(`${API_BASE}/api/art-ask`, {
-      method: 'POST',
-      body: JSON.stringify({ artwork, question }),
-    })
-  );
-}

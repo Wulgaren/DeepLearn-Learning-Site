@@ -42,7 +42,34 @@ const SEARCH_TERMS = [
   "ivory",
 ];
 
-export async function fetchMetPage(page: number): Promise<{ items: NormalizedArtwork[]; nextPage: number }> {
+/** Default Europeana query terms when none passed (aligned with Met-style discovery). */
+export const EUROPEANA_DEFAULT_TERMS = [
+  "painting",
+  "portrait",
+  "landscape",
+  "sculpture",
+  "drawing",
+  "photograph",
+  "miniature",
+  "illuminated manuscript",
+  "ceramic",
+  "textile",
+];
+
+/** 32-bit FNV-1a for deterministic “random” offsets from a client seed. */
+export function hashSeed(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+export async function fetchMetPage(
+  page: number,
+  batchSize = 12
+): Promise<{ items: NormalizedArtwork[]; nextPage: number }> {
   const deptRes = await fetch(`${MET_BASE}/departments`);
   if (!deptRes.ok) throw new Error(`Met departments ${deptRes.status}`);
   const deptJson = (await deptRes.json()) as { departments?: Array<{ departmentId: number }> };
@@ -51,7 +78,6 @@ export async function fetchMetPage(page: number): Promise<{ items: NormalizedArt
     return { items: [], nextPage: page + 1 };
   }
 
-  const batchSize = 12;
   const maxAttempts = 8;
   const collected: NormalizedArtwork[] = [];
   let attempt = 0;
@@ -128,13 +154,13 @@ function mapMetObject(o: Record<string, unknown>): NormalizedArtwork {
 
 export async function fetchEuropeanaPage(
   cursor: string | null,
-  query: string
+  query: string,
+  rows = 12
 ): Promise<{ items: NormalizedArtwork[]; nextCursor: string | null }> {
   const wskey = Deno.env.get("EUROPEANA_API_KEY");
   if (!wskey) {
     throw new Error("EUROPEANA_API_KEY not configured");
   }
-  const rows = 12;
   const q = query.trim() || "painting";
   let url = `https://api.europeana.eu/record/v2/search.json?wskey=${encodeURIComponent(wskey)}&query=${encodeURIComponent(
     q
@@ -212,8 +238,10 @@ export function commonsPathToUrl(fileName: string): string {
   return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(trimmed)}`;
 }
 
-export async function fetchWikidataPage(page: number): Promise<{ items: NormalizedArtwork[]; nextPage: number }> {
-  const limit = 12;
+export async function fetchWikidataPage(
+  page: number,
+  limit = 12
+): Promise<{ items: NormalizedArtwork[]; nextPage: number }> {
   const offset = page * limit;
   // WDQS perf: `SERVICE wikibase:label` and un-scoped joins over P18×P31 explode work *before* LIMIT.
   // Pattern: inner subquery returns only LIMIT rows (?item, ?image); outer adds rdfs:label on ≤12 items.

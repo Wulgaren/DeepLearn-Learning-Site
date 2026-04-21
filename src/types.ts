@@ -24,6 +24,8 @@ export interface Thread {
   main_post: string;
   replies: ThreadReplyItem[];
   created_at: string;
+  /** Optional image shown above main post (e.g. artwork). */
+  main_image_url?: string | null;
 }
 
 export interface FollowUp {

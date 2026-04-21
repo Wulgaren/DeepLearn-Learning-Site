@@ -35,6 +35,7 @@ export interface ArtWikidataPageResponse {
   nextPage: number;
 }
 
-export interface ArtAskResponse {
-  answer: string;
+export interface ArtCombinedPageResponse {
+  items: Artwork[];
+  nextCursor: string | null;
 }

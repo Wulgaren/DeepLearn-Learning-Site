@@ -116,6 +116,15 @@ export default function Thread() {
 
       {/* Main post */}
       <article className="border-b border-zinc-800/80">
+        {thread.main_image_url && /^https:\/\//i.test(thread.main_image_url) && (
+          <div className="px-1 pb-3">
+            <img
+              src={thread.main_image_url}
+              alt=""
+              className="w-full max-h-[min(70vh,520px)] object-contain rounded-xl border border-zinc-800 bg-zinc-950"
+            />
+          </div>
+        )}
         <PostRow
           as="div"
           label="Thread"

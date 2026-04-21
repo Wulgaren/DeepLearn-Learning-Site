@@ -55,7 +55,7 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  let body: { tweet?: string };
+  let body: { tweet?: string; mainImageUrl?: string };
   try {
     body = req.body ? await req.json() : {};
   } catch {
@@ -66,6 +66,9 @@ export default async function handler(req: Request, _context: Context): Promise<
   if (!tweet) {
     return jsonResponse({ error: "Missing or empty tweet" }, 400);
   }
+  const rawImg = typeof body.mainImageUrl === "string" ? body.mainImageUrl.trim() : "";
+  const mainImageUrl =
+    rawImg.length > 0 && /^https:\/\//i.test(rawImg) ? sanitizeForDb(rawImg, 2000) : null;
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -101,9 +104,16 @@ export default async function handler(req: Request, _context: Context): Promise<
   }
 
   const mainPostForDb = sanitizeForDb(rawTweet, 1000);
+  const insertRow: Record<string, unknown> = {
+    topic_id: topicRow.id,
+    main_post: mainPostForDb,
+    replies: [],
+  };
+  if (mainImageUrl) insertRow.main_image_url = mainImageUrl;
+
   const { data: threadRow, error: threadError } = await supabase
     .from("threads")
-    .insert({ topic_id: topicRow.id, main_post: mainPostForDb, replies: [] })
+    .insert(insertRow)
     .select("id")
     .single();
 

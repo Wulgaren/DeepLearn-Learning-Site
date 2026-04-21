@@ -17,6 +17,9 @@ create table if not exists public.threads (
   created_at timestamptz not null default now()
 );
 
+-- Optional hero image for thread main post (e.g. art “learn more” flows). Safe to run on existing DBs:
+alter table public.threads add column if not exists main_image_url text;
+
 -- Follow-up Q&A within a thread
 create table if not exists public.follow_ups (
   id uuid primary key default gen_random_uuid(),

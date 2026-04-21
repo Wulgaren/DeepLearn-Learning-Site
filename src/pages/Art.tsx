@@ -1,17 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  askAboutArtwork,
-  getArtEuropeanaPage,
-  getArtMetPage,
-  getArtWikidataPage,
-} from '../lib/api';
+import { getArtCombinedPage } from '../lib/api';
+import { artworkToMainTweet } from '../lib/artTweet';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getErrorMessage } from '../lib/errors';
-import type { ArtSource, Artwork } from '../types/art';
-
-type Tab = ArtSource;
+import type { Artwork } from '../types/art';
 
 function workKey(a: Artwork): string {
   return `${a.source}:${a.id}`;
@@ -29,18 +24,41 @@ function metArtistUrl(a: Artwork): string | null {
   return `https://www.metmuseum.org/art/collection/search?q=${encodeURIComponent(label)}`;
 }
 
+/** Catalog URL for “open in new tab” / context menu; falls back per source when `objectUrl` is missing. */
+function catalogPageUrl(a: Artwork): string {
+  const u = a.objectUrl?.trim();
+  if (u) return u;
+  if (a.source === 'met' && /^\d+$/.test(a.id)) {
+    return `https://www.metmuseum.org/art/collection/object/${a.id}`;
+  }
+  if (a.source === 'wikidata' && /^Q\d+/.test(a.id)) {
+    return `https://www.wikidata.org/wiki/${a.id}`;
+  }
+  const q = encodeURIComponent((a.title || 'artwork').slice(0, 120));
+  return `https://www.europeana.eu/en/search?query=${q}`;
+}
+
+function openModalUnlessModifiedClick(
+  e: React.MouseEvent<HTMLAnchorElement>,
+  open: () => void
+): void {
+  if (e.defaultPrevented) return;
+  if (e.button !== 0) return;
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+  e.preventDefault();
+  open();
+}
+
 export default function Art() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<Tab>('met');
+  const [sessionSeed] = useState(() => crypto.randomUUID());
+  const [shuffleKey, setShuffleKey] = useState(0);
+  const feedSeed = `${sessionSeed}:${shuffleKey}`;
   const [europeanaQ, setEuropeanaQ] = useState('painting');
   const [europeanaApplied, setEuropeanaApplied] = useState('painting');
   const [selected, setSelected] = useState<Artwork | null>(null);
-  const [askOpen, setAskOpen] = useState(false);
-  const [askQuestion, setAskQuestion] = useState('');
-  const [askAnswer, setAskAnswer] = useState<string | null>(null);
-  const [askLoading, setAskLoading] = useState(false);
-  const [askError, setAskError] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const { data: savedRows } = useQuery({
@@ -72,44 +90,24 @@ export default function Art() {
     [savedArtistsRows]
   );
 
-  const metQuery = useInfiniteQuery({
-    queryKey: ['artFeed', 'met'],
-    queryFn: ({ pageParam }) => getArtMetPage(pageParam),
-    initialPageParam: 0,
-    getNextPageParam: (last) => last.nextPage,
-    enabled: tab === 'met',
-  });
-
-  const europeanaQuery = useInfiniteQuery({
-    queryKey: ['artFeed', 'europeana', europeanaApplied],
-    queryFn: ({ pageParam }) => getArtEuropeanaPage(pageParam, europeanaApplied),
+  const combinedQuery = useInfiniteQuery({
+    queryKey: ['artFeed', 'combined', feedSeed, europeanaApplied],
+    queryFn: ({ pageParam }) =>
+      getArtCombinedPage({
+        seed: feedSeed,
+        cursor: pageParam,
+        q: europeanaApplied,
+      }),
     initialPageParam: null as string | null,
-    getNextPageParam: (last) => last.nextCursor,
-    enabled: tab === 'europeana',
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 
-  const wikidataQuery = useInfiniteQuery({
-    queryKey: ['artFeed', 'wikidata'],
-    queryFn: ({ pageParam }) => getArtWikidataPage(pageParam),
-    initialPageParam: 0,
-    getNextPageParam: (last) => last.nextPage,
-    enabled: tab === 'wikidata',
-  });
-
-  const activeQuery = tab === 'met' ? metQuery : tab === 'europeana' ? europeanaQuery : wikidataQuery;
-
-  const items =
-    tab === 'met'
-      ? metQuery.data?.pages.flatMap((p) => p.items) ?? []
-      : tab === 'europeana'
-        ? europeanaQuery.data?.pages.flatMap((p) => p.items) ?? []
-        : wikidataQuery.data?.pages.flatMap((p) => p.items) ?? [];
-
-  const fetchNextPage = activeQuery.fetchNextPage;
-  const hasNextPage = activeQuery.hasNextPage;
-  const isFetchingNextPage = activeQuery.isFetchingNextPage;
-  const isLoading = activeQuery.isLoading;
-  const error = activeQuery.error;
+  const items = combinedQuery.data?.pages.flatMap((p) => p.items) ?? [];
+  const fetchNextPage = combinedQuery.fetchNextPage;
+  const hasNextPage = combinedQuery.hasNextPage;
+  const isFetchingNextPage = combinedQuery.isFetchingNextPage;
+  const isLoading = combinedQuery.isLoading;
+  const error = combinedQuery.error;
 
   useEffect(() => {
     const el = loadMoreRef.current;
@@ -201,62 +199,27 @@ export default function Art() {
     [queryClient, savedArtists, user]
   );
 
-  async function handleAskSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selected) return;
-    const q = askQuestion.trim();
-    if (!q) return;
-    setAskLoading(true);
-    setAskError(null);
-    setAskAnswer(null);
-    try {
-      const { answer } = await askAboutArtwork(selected, q);
-      setAskAnswer(answer);
-    } catch (err) {
-      setAskError(getErrorMessage(err));
-    } finally {
-      setAskLoading(false);
-    }
+  function learnMore(a: Artwork) {
+    if (!user) return;
+    const tweet = artworkToMainTweet(a);
+    const mainImageUrl = a.imageUrl ?? a.thumbUrl ?? null;
+    const safeImage =
+      mainImageUrl && /^https:\/\//i.test(mainImageUrl) ? mainImageUrl : null;
+    navigate('/thread/new', {
+      state: { tweet, mainImageUrl: safeImage },
+    });
   }
-
-  function openAsk(a: Artwork) {
-    setSelected(a);
-    setAskOpen(true);
-    setAskQuestion('');
-    setAskAnswer(null);
-    setAskError(null);
-  }
-
-  function closeAsk() {
-    setAskOpen(false);
-  }
-
-  const tabClass = (t: Tab) =>
-    `px-4 py-2 rounded-full text-sm font-semibold transition ${
-      tab === t ? 'bg-zinc-100 text-black' : 'bg-zinc-900 text-zinc-300 hover:text-white border border-zinc-800'
-    }`;
 
   return (
     <div className="py-6 max-w-4xl mx-auto">
       <p className="text-zinc-400 text-sm m-0 mb-4">
-        Open-access art from The Met, Europeana, and Wikidata. Rights vary by record; check attribution on each work.
+        Open-access art from The Met, Europeana, and Wikidata in one feed. Rights vary by record; check attribution on
+        each work.
       </p>
 
-      <div className="flex flex-wrap gap-2 mb-6">
-        <button type="button" className={tabClass('met')} onClick={() => setTab('met')}>
-          The Met
-        </button>
-        <button type="button" className={tabClass('europeana')} onClick={() => setTab('europeana')}>
-          Europeana
-        </button>
-        <button type="button" className={tabClass('wikidata')} onClick={() => setTab('wikidata')}>
-          Wikidata
-        </button>
-      </div>
-
-      {tab === 'europeana' && (
+      <div className="flex flex-wrap gap-2 items-center mb-4">
         <form
-          className="flex flex-wrap gap-2 items-center mb-4"
+          className="flex flex-wrap gap-2 items-center flex-1 min-w-[200px]"
           onSubmit={(e) => {
             e.preventDefault();
             setEuropeanaApplied(europeanaQ.trim() || 'painting');
@@ -266,7 +229,7 @@ export default function Art() {
             type="search"
             value={europeanaQ}
             onChange={(e) => setEuropeanaQ(e.target.value)}
-            placeholder="Search Europeana (e.g. painting, photo)"
+            placeholder="Europeana search (e.g. painting, photo)"
             className="flex-1 min-w-[200px] rounded-full border border-zinc-800 bg-zinc-950 px-4 py-2 text-sm outline-none focus:border-zinc-600"
           />
           <button
@@ -276,12 +239,19 @@ export default function Art() {
             Search
           </button>
         </form>
-      )}
+        <button
+          type="button"
+          className="px-4 py-2 rounded-full border border-zinc-700 text-sm text-zinc-300 hover:bg-zinc-900"
+          onClick={() => setShuffleKey((k) => k + 1)}
+        >
+          Shuffle feed
+        </button>
+      </div>
 
       {error && (
         <div className="rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200 mb-4">
           {getErrorMessage(error)}
-          {tab === 'europeana' && String(getErrorMessage(error)).includes('not configured') && (
+          {String(getErrorMessage(error)).includes('not configured') && (
             <span> Add EUROPEANA_API_KEY to Netlify env (see README).</span>
           )}
         </div>
@@ -290,7 +260,7 @@ export default function Art() {
       {isLoading && <p className="text-zinc-500">Loading…</p>}
 
       {!isLoading && !error && items.length === 0 && (
-        <p className="text-zinc-500">No items returned. Try another tab or search.</p>
+        <p className="text-zinc-500">No items returned. Try Shuffle feed or another search.</p>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -300,19 +270,22 @@ export default function Art() {
           const ak = artistKey(a);
           const isSaved = savedWorks.has(wk);
           const artistSaved = ak ? savedArtists.has(ak) : false;
+          const href = catalogPageUrl(a);
           return (
-            <div
+            <a
               key={wk}
-              role="button"
+              href={href}
+              target="_blank"
+              rel="noreferrer"
               tabIndex={0}
-              onClick={() => setSelected(a)}
+              onClick={(e) => openModalUnlessModifiedClick(e, () => setSelected(a))}
               onKeyDown={(ev) => {
                 if (ev.key === 'Enter' || ev.key === ' ') {
                   ev.preventDefault();
                   setSelected(a);
                 }
               }}
-              className="group text-left rounded-2xl border border-zinc-800 bg-zinc-950/80 overflow-hidden hover:border-zinc-600 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 cursor-pointer"
+              className="group text-left rounded-2xl border border-zinc-800 bg-zinc-950/80 overflow-hidden hover:border-zinc-600 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 cursor-pointer no-underline text-inherit block"
             >
               <div className="aspect-square bg-zinc-900 relative">
                 {thumb ? (
@@ -325,6 +298,7 @@ export default function Art() {
                     type="button"
                     className="text-[10px] px-2 py-1 rounded-full bg-black/70 text-zinc-200"
                     onClick={(ev) => {
+                      ev.preventDefault();
                       ev.stopPropagation();
                       void toggleSaveWork(a);
                     }}
@@ -343,7 +317,7 @@ export default function Art() {
                   {artistSaved ? ' · artist saved' : ''}
                 </p>
               </div>
-            </div>
+            </a>
           );
         })}
       </div>
@@ -444,58 +418,17 @@ export default function Art() {
                 </button>
                 <button
                   type="button"
-                  className="px-4 py-2 rounded-full border border-zinc-700 text-sm hover:bg-zinc-900"
-                  onClick={() => openAsk(selected)}
+                  className="px-4 py-2 rounded-full border border-zinc-700 text-sm hover:bg-zinc-900 disabled:opacity-50"
+                  disabled={!user}
+                  onClick={() => learnMore(selected)}
                 >
-                  Ask AI
+                  Learn more
                 </button>
               </div>
-              {!user && <p className="m-0 text-xs text-amber-200/90">Sign in to save works and artists.</p>}
+              {!user && (
+                <p className="m-0 text-xs text-amber-200/90">Sign in to save works, learn more, and open threads.</p>
+              )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {askOpen && selected && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80"
-          role="dialog"
-          aria-modal
-          aria-labelledby="ask-title"
-          onClick={closeAsk}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-3">
-              <h3 id="ask-title" className="m-0 text-base font-semibold">
-                Ask about this work
-              </h3>
-              <button type="button" className="text-zinc-400 hover:text-white" aria-label="Close" onClick={closeAsk}>
-                ×
-              </button>
-            </div>
-            <p className="m-0 text-xs text-zinc-500 mb-2 line-clamp-2">{selected.title}</p>
-            <form onSubmit={handleAskSubmit} className="space-y-3">
-              <textarea
-                value={askQuestion}
-                onChange={(e) => setAskQuestion(e.target.value)}
-                placeholder="e.g. What movement is this associated with?"
-                rows={3}
-                className="w-full rounded-xl border border-zinc-800 bg-black px-3 py-2 text-sm outline-none focus:border-zinc-600"
-                maxLength={2000}
-              />
-              {askError && <p className="m-0 text-sm text-red-400">{askError}</p>}
-              {askAnswer && <p className="m-0 text-sm text-zinc-300 whitespace-pre-wrap">{askAnswer}</p>}
-              <button
-                type="submit"
-                disabled={askLoading || !askQuestion.trim()}
-                className="w-full py-2 rounded-full bg-zinc-100 text-black font-semibold text-sm hover:bg-white disabled:opacity-50"
-              >
-                {askLoading ? 'Thinking…' : 'Ask'}
-              </button>
-            </form>
           </div>
         </div>
       )}

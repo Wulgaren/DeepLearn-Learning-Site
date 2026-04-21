@@ -30,7 +30,7 @@ export default async function handler(req: Request, _context: Context): Promise<
 
   const { data: thread, error: threadError } = await supabase
     .from("threads")
-    .select("id, topic_id, main_post, replies, created_at")
+    .select("id, topic_id, main_post, replies, created_at, main_image_url")
     .eq("id", threadId)
     .single();
 
@@ -57,6 +57,7 @@ export default async function handler(req: Request, _context: Context): Promise<
       main_post: thread.main_post,
       replies: thread.replies ?? [],
       created_at: thread.created_at,
+      main_image_url: thread.main_image_url ?? null,
     },
   });
 }
