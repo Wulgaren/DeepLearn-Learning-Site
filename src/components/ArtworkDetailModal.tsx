@@ -109,7 +109,7 @@ export default function ArtworkDetailModal({
       onClick={() => onClose()}
     >
       <div
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950 shadow-xl"
+        className="w-full min-h-0 max-w-lg max-h-[min(90vh,90svh)] overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b border-zinc-800 flex justify-between items-start gap-2">
@@ -189,7 +189,7 @@ export default function ArtworkDetailModal({
                 src={selected.imageUrl ?? selected.thumbUrl ?? ''}
                 alt=""
                 draggable={false}
-                className="max-w-full max-h-[min(52vh,560px)] w-auto h-auto object-contain object-center select-none"
+                className="max-w-full max-h-[min(52svh,560px)] w-auto h-auto object-contain object-center select-none"
               />
             </div>
           )}

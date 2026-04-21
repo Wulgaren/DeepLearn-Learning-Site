@@ -4,6 +4,8 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -17,6 +19,7 @@ import { artistExternalId, normalizeHttpsImageUrl } from '../lib/artRouteUtils';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { getErrorMessage } from '../lib/errors';
+import { pickRandomArtWord, resolveArtFeedQ, stashArtFeedQ } from '../lib/artFeedRandomQ';
 import { bumpArtFeedShuffle, getArtFeedSeed } from '../lib/artFeedSeed';
 import type { Artwork } from '../types/art';
 import type { ArtThreadSummary } from '../types';
@@ -55,15 +58,39 @@ export function ArtRouteProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const qApplied = searchParams.get('q')?.trim() || 'painting';
-  const [europeanaQ, setEuropeanaQ] = useState(qApplied);
+  const qApplied = useMemo(
+    () => resolveArtFeedQ(location.pathname, searchParams),
+    [location.pathname, searchParams],
+  );
+  const [europeanaQ, setEuropeanaQ] = useState(() =>
+    resolveArtFeedQ(location.pathname, searchParams),
+  );
   const [feedSeed, setFeedSeed] = useState(() => getArtFeedSeed());
-  /** Last `q` we synced from the URL — when it changes (back/forward, nav), mirror into the input. */
-  const syncedUrlQRef = useRef(qApplied);
-  if (qApplied !== syncedUrlQRef.current) {
-    syncedUrlQRef.current = qApplied;
-    setEuropeanaQ(qApplied);
-  }
+  /** When `qApplied` changes from URL (nav, shuffle, sync), mirror into search input — not on every keystroke. */
+  const prevQAppliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevQAppliedRef.current === null) {
+      prevQAppliedRef.current = qApplied;
+      return;
+    }
+    if (qApplied !== prevQAppliedRef.current) {
+      prevQAppliedRef.current = qApplied;
+      /* URL is external source for shuffle/back/forward; input must follow. */
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional URL → input sync
+      setEuropeanaQ(qApplied);
+    }
+  }, [qApplied]);
+
+  /** Bare `/art` → put resolved `q` in URL so refresh/back stay stable; `resolveArtFeedQ` already matches. */
+  useLayoutEffect(() => {
+    if (location.pathname !== '/art') return;
+    const raw = searchParams.get('q')?.trim();
+    if (raw) return;
+    const v = resolveArtFeedQ(location.pathname, searchParams);
+    const next = new URLSearchParams(searchParams);
+    next.set('q', v);
+    setSearchParams(next, { replace: true });
+  }, [location.pathname, searchParams, setSearchParams]);
 
   const { data: artThreadsData } = useQuery({
     queryKey: ['artThreads', user?.id],
@@ -205,6 +232,7 @@ export function ArtRouteProvider({ children }: { children: ReactNode }) {
     (e: React.FormEvent) => {
       e.preventDefault();
       const q = europeanaQ.trim() || 'painting';
+      stashArtFeedQ(q);
       if (location.pathname.startsWith('/art')) {
         const next = new URLSearchParams(searchParams);
         next.set('q', q);
@@ -216,13 +244,24 @@ export function ArtRouteProvider({ children }: { children: ReactNode }) {
     [europeanaQ, searchParams, setSearchParams, navigate, location.pathname]
   );
 
+  const onShuffle = useCallback(() => {
+    const cur = searchParams.get('q')?.trim() ?? '';
+    let next = pickRandomArtWord();
+    for (let i = 0; i < 12 && next === cur; i++) next = pickRandomArtWord();
+    stashArtFeedQ(next);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('q', next);
+    setSearchParams(nextParams);
+    setFeedSeed(bumpArtFeedShuffle());
+  }, [searchParams, setSearchParams]);
+
   const value: ArtRouteContextValue = {
     user,
     qApplied,
     europeanaQ,
     setEuropeanaQ,
     applySearch,
-    onShuffle: () => setFeedSeed(bumpArtFeedShuffle()),
+    onShuffle,
     feedSeed,
     artThreads: artThreadsData?.threads ?? [],
     savedArtistsRows: savedArtistsRows ?? [],
