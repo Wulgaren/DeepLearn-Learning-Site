@@ -33,6 +33,8 @@ export default function ArtArtist() {
   const source = params.source ?? '';
   const externalId = params.externalId ? decodeURIComponent(params.externalId) : '';
   const sourceValid = isArtSource(source);
+  const savedArtistLookupKey =
+    sourceValid && externalId ? (`${source}:${externalId}` as const) : null;
 
   const queryKey = useMemo(
     () => ['artArtist', source, externalId, labelHint] as const,
@@ -141,7 +143,11 @@ export default function ArtArtist() {
             const wk = workKey(a);
             const ak = artistKey(a);
             const isSaved = Boolean(user && threadIdByWork.has(wk));
-            const artistSaved = ak ? savedArtists.has(ak) : false;
+            const artistSaved = savedArtistLookupKey
+              ? savedArtists.has(savedArtistLookupKey)
+              : ak
+                ? savedArtists.has(ak)
+                : false;
             const href = user ? threadNewHrefForArtwork(a) : catalogPageUrl(a);
             return (
               <a
@@ -211,7 +217,12 @@ export default function ArtArtist() {
         </div>
       </section>
 
-      <ArtworkDetailModal selected={selected} onClose={() => setSelected(null)} />
+      <ArtworkDetailModal
+        selected={selected}
+        onClose={() => setSelected(null)}
+        savedArtistLookupKey={savedArtistLookupKey}
+        canonicalArtistExternalId={sourceValid ? externalId : null}
+      />
     </div>
   );
 }

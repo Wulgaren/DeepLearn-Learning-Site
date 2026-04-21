@@ -15,9 +15,14 @@ export function workKey(a: Artwork): string {
   return `${a.source}:${a.id}`;
 }
 
-export function artistKey(a: Artwork): string | null {
+/** Stable id for `saved_artists.external_id` — must match server upsert/delete. */
+export function artistExternalId(a: Artwork): string | null {
   if (!a.artist) return null;
-  const ext = a.artist.id ?? (a.artist.label ? `label:${a.artist.label}` : null);
+  return a.artist.id ?? (a.artist.label ? `label:${a.artist.label}` : null);
+}
+
+export function artistKey(a: Artwork): string | null {
+  const ext = artistExternalId(a);
   return ext ? `${a.source}:${ext}` : null;
 }
 

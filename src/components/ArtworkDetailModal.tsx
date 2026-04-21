@@ -11,9 +11,21 @@ import type { Artwork } from '../types/art';
 type Props = {
   selected: Artwork | null;
   onClose: () => void;
+  /**
+   * On `/art/artist/:source/:externalId`, prefer this for “artist saved” — matches
+   * `saved_artists` even if per-item `artist.id` from the API disagrees.
+   */
+  savedArtistLookupKey?: string | null;
+  /** Same route; used for save/unsave so DB `external_id` matches the rail. */
+  canonicalArtistExternalId?: string | null;
 };
 
-export default function ArtworkDetailModal({ selected, onClose }: Props) {
+export default function ArtworkDetailModal({
+  selected,
+  onClose,
+  savedArtistLookupKey = null,
+  canonicalArtistExternalId = null,
+}: Props) {
   const {
     user,
     saveArtMutation,
@@ -23,6 +35,9 @@ export default function ArtworkDetailModal({ selected, onClose }: Props) {
   } = useArtRoute();
 
   if (!selected) return null;
+
+  const artistLookupKey = savedArtistLookupKey ?? artistKey(selected);
+  const artistIsSaved = Boolean(artistLookupKey && savedArtists.has(artistLookupKey));
 
   return (
     <div
@@ -126,12 +141,14 @@ export default function ArtworkDetailModal({ selected, onClose }: Props) {
             <button
               type="button"
               className="px-4 py-2 rounded-full border border-zinc-700 text-sm hover:bg-zinc-900 disabled:opacity-50"
-              disabled={!user || !artistKey(selected)}
-              onClick={() => void toggleSaveArtist(selected)}
+              disabled={!user || !artistLookupKey}
+              onClick={() =>
+                void toggleSaveArtist(selected, {
+                  artistExternalIdOverride: canonicalArtistExternalId ?? undefined,
+                })
+              }
             >
-              {artistKey(selected) && savedArtists.has(artistKey(selected)!)
-                ? 'Artist saved'
-                : 'Save artist'}
+              {artistIsSaved ? 'Artist saved' : 'Save artist'}
             </button>
             <Link
               to={user ? threadNewHrefForArtwork(selected) : '#'}

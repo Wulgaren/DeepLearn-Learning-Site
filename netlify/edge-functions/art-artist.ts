@@ -196,6 +196,58 @@ async function fetchMetByArtistName(
   return { items: collected, nextOffset: offset + slice.length, totalIds };
 }
 
+/**
+ * Align each work's `artist` with the artist-page route (`source` + `externalId`),
+ * matching `saved_artists.external_id` / `artistKey()` after saving from the rail.
+ * Per-item API data can omit or differ (e.g. Wikidata OPTIONAL bindings, Met constituent vs label).
+ */
+function alignArtistToPageContext(
+  items: NormalizedArtwork[],
+  source: "met" | "europeana" | "wikidata",
+  externalId: string,
+  displayName: string
+): NormalizedArtwork[] {
+  if (source === "wikidata") {
+    const qid = externalId.match(/^(Q\d+)$/)?.[1];
+    if (!qid) return items;
+    return items.map((item) => ({
+      ...item,
+      artist: {
+        id: qid,
+        label: item.artist?.label ?? displayName,
+        wikiUrl: `https://www.wikidata.org/wiki/${qid}`,
+      },
+    }));
+  }
+  if (source === "met") {
+    if (externalId.startsWith("label:")) {
+      const fromLabel = externalId.slice("label:".length);
+      return items.map((item) => ({
+        ...item,
+        artist: {
+          id: externalId,
+          label: item.artist?.label ?? (fromLabel.trim() || displayName),
+          wikiUrl: null,
+        },
+      }));
+    }
+    return items.map((item) => ({
+      ...item,
+      artist: item.artist
+        ? { ...item.artist, id: externalId }
+        : { id: externalId, label: displayName, wikiUrl: null },
+    }));
+  }
+  return items.map((item) => ({
+    ...item,
+    artist: {
+      id: externalId,
+      label: item.artist?.label ?? displayName,
+      wikiUrl: null,
+    },
+  }));
+}
+
 async function fetchEuropeanaByCreator(
   name: string,
   cursor: string | null
@@ -298,10 +350,12 @@ export default async function handler(req: Request, _context: Context): Promise<
       };
       const nextCursor = hasMore ? encodeArtCursorJson(nextState) : null;
       log(FN, "info", "wikidata ok", { n: wd.items.length, qid });
+      const wdLabel = artistLabel ?? labelHint ?? qid;
+      const wdItems = alignArtistToPageContext(wd.items, "wikidata", externalId, wdLabel);
       return jsonResponse({
-        items: wd.items,
+        items: wdItems,
         nextCursor,
-        artistLabel: artistLabel ?? labelHint ?? qid,
+        artistLabel: wdLabel,
         wikiUrl: `https://www.wikidata.org/wiki/${qid}`,
         metSearchUrl: null,
       });
@@ -328,8 +382,9 @@ export default async function handler(req: Request, _context: Context): Promise<
         name
       )}`;
       log(FN, "info", "met ok", { n: items.length, name });
+      const metItems = alignArtistToPageContext(items, "met", externalId, name);
       return jsonResponse({
-        items,
+        items: metItems,
         nextCursor,
         artistLabel: name,
         wikiUrl: null,
@@ -350,8 +405,9 @@ export default async function handler(req: Request, _context: Context): Promise<
     };
     const nextCursor = eu.nextCursor ? encodeArtCursorJson(nextState) : null;
     log(FN, "info", "europeana ok", { n: eu.items.length, name });
+    const euItems = alignArtistToPageContext(eu.items, "europeana", externalId, name);
     return jsonResponse({
-      items: eu.items,
+      items: euItems,
       nextCursor,
       artistLabel: name,
       wikiUrl: null,
