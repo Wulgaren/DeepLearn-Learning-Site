@@ -151,7 +151,12 @@ export default function Art() {
       </section>
       )}
 
-      <ArtworkDetailModal selected={selected} onClose={() => setSelected(null)} />
+      <ArtworkDetailModal
+        selected={selected}
+        onClose={() => setSelected(null)}
+        galleryItems={items}
+        onNavigateTo={setSelected}
+      />
     </div>
   );
 }

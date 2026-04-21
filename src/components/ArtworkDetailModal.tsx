@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   artistKey,
@@ -18,13 +19,20 @@ type Props = {
   savedArtistLookupKey?: string | null;
   /** Same route; used for save/unsave so DB `external_id` matches the rail. */
   canonicalArtistExternalId?: string | null;
+  /** Feed grid items; with `onNavigateTo` enables arrows, swipe, prev/next. */
+  galleryItems?: Artwork[];
+  onNavigateTo?: (work: Artwork) => void;
 };
+
+const SWIPE_MIN_PX = 56;
 
 export default function ArtworkDetailModal({
   selected,
   onClose,
   savedArtistLookupKey = null,
   canonicalArtistExternalId = null,
+  galleryItems,
+  onNavigateTo,
 }: Props) {
   const {
     user,
@@ -34,6 +42,56 @@ export default function ArtworkDetailModal({
     toggleSaveArtist,
   } = useArtRoute();
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
+
+  const galleryIndex =
+    selected && galleryItems?.length
+      ? galleryItems.findIndex((a) => workKey(a) === workKey(selected))
+      : -1;
+  const hasGallery =
+    Boolean(onNavigateTo && galleryItems && galleryItems.length > 1 && galleryIndex >= 0);
+  const canPrev = hasGallery && galleryIndex > 0;
+  const canNext = hasGallery && galleryIndex < galleryItems!.length - 1;
+
+  const goPrev = useCallback(() => {
+    if (!onNavigateTo || !galleryItems || galleryIndex <= 0) return;
+    onNavigateTo(galleryItems[galleryIndex - 1]);
+  }, [galleryIndex, galleryItems, onNavigateTo]);
+
+  const goNext = useCallback(() => {
+    if (!onNavigateTo || !galleryItems || galleryIndex < 0 || galleryIndex >= galleryItems.length - 1) {
+      return;
+    }
+    onNavigateTo(galleryItems[galleryIndex + 1]);
+  }, [galleryIndex, galleryItems, onNavigateTo]);
+
+  useEffect(() => {
+    if (!selected) return;
+    dialogRef.current?.focus({ preventScroll: true });
+  }, [selected]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (!hasGallery) return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goPrev();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goNext();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected, hasGallery, onClose, goPrev, goNext]);
+
   if (!selected) return null;
 
   const artistLookupKey = savedArtistLookupKey ?? artistKey(selected);
@@ -41,7 +99,9 @@ export default function ArtworkDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      ref={dialogRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm outline-none"
       role="dialog"
       aria-modal
       aria-labelledby="art-detail-title"
@@ -66,11 +126,69 @@ export default function ArtworkDetailModal({
         </div>
         <div className="p-4 space-y-3">
           {(selected.imageUrl || selected.thumbUrl) && (
-            <div className="w-full min-h-0 flex justify-center items-center rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
+            <div
+              className="relative w-full min-h-0 flex justify-center items-center rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden touch-pan-y"
+              onTouchStart={(e) => {
+                if (e.touches.length !== 1) return;
+                touchStartX.current = e.touches[0].clientX;
+              }}
+              onTouchEnd={(e) => {
+                if (touchStartX.current == null || !hasGallery) {
+                  touchStartX.current = null;
+                  return;
+                }
+                const endX = e.changedTouches[0]?.clientX;
+                if (endX == null) {
+                  touchStartX.current = null;
+                  return;
+                }
+                const dx = endX - touchStartX.current;
+                touchStartX.current = null;
+                if (Math.abs(dx) < SWIPE_MIN_PX) return;
+                if (dx > 0) goPrev();
+                else goNext();
+              }}
+              onTouchCancel={() => {
+                touchStartX.current = null;
+              }}
+            >
+              {hasGallery && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Previous artwork"
+                    disabled={!canPrev}
+                    className="absolute left-1 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/55 p-2 text-zinc-100 hover:bg-black/75 disabled:opacity-30 disabled:pointer-events-none sm:left-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goPrev();
+                    }}
+                  >
+                    <span aria-hidden className="block text-lg leading-none">
+                      ‹
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next artwork"
+                    disabled={!canNext}
+                    className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/55 p-2 text-zinc-100 hover:bg-black/75 disabled:opacity-30 disabled:pointer-events-none sm:right-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goNext();
+                    }}
+                  >
+                    <span aria-hidden className="block text-lg leading-none">
+                      ›
+                    </span>
+                  </button>
+                </>
+              )}
               <img
                 src={selected.imageUrl ?? selected.thumbUrl ?? ''}
                 alt=""
-                className="max-w-full max-h-[min(52vh,560px)] w-auto h-auto object-contain object-center"
+                draggable={false}
+                className="max-w-full max-h-[min(52vh,560px)] w-auto h-auto object-contain object-center select-none"
               />
             </div>
           )}

@@ -222,6 +222,8 @@ export default function ArtArtist() {
         onClose={() => setSelected(null)}
         savedArtistLookupKey={savedArtistLookupKey}
         canonicalArtistExternalId={sourceValid ? externalId : null}
+        galleryItems={items}
+        onNavigateTo={setSelected}
       />
     </div>
   );
