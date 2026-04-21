@@ -25,20 +25,22 @@ export default function ArtRightRail() {
     <div className="space-y-4">
       <form
         onSubmit={applySearch}
-        className="rounded-full border border-zinc-800 bg-zinc-950/60 px-4 py-2 flex items-center gap-3 min-w-0"
+        className="flex items-center gap-2 min-w-0"
       >
-        <input
-          type="search"
-          value={europeanaQ}
-          onChange={(e) => setEuropeanaQ(e.target.value)}
-          placeholder="e.g. painting, photo — Enter to apply"
-          aria-label="Europeana search query"
-          className="flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:text-zinc-500"
-        />
+        <div className="flex-1 min-w-0 rounded-full border border-zinc-800 bg-zinc-950/60 px-4 py-2 flex items-center">
+          <input
+            type="search"
+            value={europeanaQ}
+            onChange={(e) => setEuropeanaQ(e.target.value)}
+            placeholder="e.g. painting, photo — Enter to apply"
+            aria-label="Europeana search query"
+            className="w-full min-w-0 bg-transparent outline-none text-sm placeholder:text-zinc-500"
+          />
+        </div>
         <button
           type="button"
           onClick={onShuffle}
-          className="shrink-0 px-4 py-1.5 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white text-sm"
+          className="shrink-0 px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white text-sm"
         >
           Shuffle
         </button>
