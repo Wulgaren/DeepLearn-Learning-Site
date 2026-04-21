@@ -207,7 +207,7 @@ export default function ArtArtist() {
           ref={loadMoreRef}
           className="h-8 mt-6 flex items-center justify-center text-zinc-500 text-sm"
         >
-          {isFetchingNextPage ? 'Loading more…' : hasNextPage ? '' : items.length > 0 ? 'End' : ''}
+          {isFetchingNextPage ? 'Loading more…' : ''}
         </div>
       </section>
 
