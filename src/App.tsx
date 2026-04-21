@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { AuthProvider } from './contexts/AuthContext';
 import { ArtRouteProvider } from './contexts/ArtRouteContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ConditionalArtRouteLayout from './components/ConditionalArtRouteLayout';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -36,9 +37,9 @@ function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <ArtRouteProvider>
+                <ConditionalArtRouteLayout>
                   <Layout />
-                </ArtRouteProvider>
+                </ConditionalArtRouteLayout>
               </ProtectedRoute>
             }
           >

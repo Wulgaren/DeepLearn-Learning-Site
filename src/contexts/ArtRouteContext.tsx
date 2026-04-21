@@ -17,6 +17,7 @@ import { artistKey, normalizeHttpsImageUrl } from '../lib/artRouteUtils';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { getErrorMessage } from '../lib/errors';
+import { bumpArtFeedShuffle, getArtFeedSeed } from '../lib/artFeedSeed';
 import type { Artwork } from '../types/art';
 import type { ArtThreadSummary } from '../types';
 
@@ -30,7 +31,6 @@ export type ArtRouteContextValue = {
   applySearch: (e: React.FormEvent) => void;
   onShuffle: () => void;
   feedSeed: string;
-  sessionSeed: string;
   artThreads: ArtThreadSummary[];
   savedArtistsRows: SavedArtistRow[];
   savedArtists: Set<string>;
@@ -56,9 +56,7 @@ export function ArtRouteProvider({ children }: { children: ReactNode }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const qApplied = searchParams.get('q')?.trim() || 'painting';
   const [europeanaQ, setEuropeanaQ] = useState(qApplied);
-  const [sessionSeed] = useState(() => crypto.randomUUID());
-  const [shuffleKey, setShuffleKey] = useState(0);
-  const feedSeed = `${sessionSeed}:${shuffleKey}`;
+  const [feedSeed, setFeedSeed] = useState(() => getArtFeedSeed());
 
   useEffect(() => {
     setEuropeanaQ(searchParams.get('q')?.trim() || 'painting');
@@ -194,9 +192,8 @@ export function ArtRouteProvider({ children }: { children: ReactNode }) {
     europeanaQ,
     setEuropeanaQ,
     applySearch,
-    onShuffle: () => setShuffleKey((k) => k + 1),
+    onShuffle: () => setFeedSeed(bumpArtFeedShuffle()),
     feedSeed,
-    sessionSeed,
     artThreads: artThreadsData?.threads ?? [],
     savedArtistsRows: savedArtistsRows ?? [],
     savedArtists,
