@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   artistKey,
-  metArtistUrl,
+  inAppArtistHref,
   threadNewHrefForArtwork,
   workKey,
 } from '../lib/artRouteUtils';
@@ -102,14 +102,14 @@ export default function ArtworkDetailModal({
     <div
       ref={dialogRef}
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm outline-none"
+      className="fixed inset-0 z-50 flex min-h-[100dvh] items-end sm:items-center justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4 bg-black/70 backdrop-blur-sm outline-none"
       role="dialog"
       aria-modal
       aria-labelledby="art-detail-title"
       onClick={() => onClose()}
     >
       <div
-        className="w-full min-h-0 max-w-lg max-h-[min(90vh,90svh)] overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950 shadow-xl"
+        className="w-full min-h-0 max-w-lg max-sm:min-h-[min(76dvh,82svh)] max-h-[min(94dvh,94svh)] sm:max-h-[min(90vh,90svh)] overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b border-zinc-800 flex justify-between items-start gap-2">
@@ -189,7 +189,7 @@ export default function ArtworkDetailModal({
                 src={selected.imageUrl ?? selected.thumbUrl ?? ''}
                 alt=""
                 draggable={false}
-                className="max-w-full max-h-[min(52svh,560px)] w-auto h-auto object-contain object-center select-none"
+                className="max-w-full max-h-[min(58dvh,58svh,560px)] sm:max-h-[min(52svh,560px)] w-auto h-auto object-contain object-center select-none"
               />
             </div>
           )}
@@ -227,15 +227,17 @@ export default function ArtworkDetailModal({
                 >
                   {selected.artist.label}
                 </a>
-              ) : selected.source === 'met' && metArtistUrl(selected) ? (
-                <a
-                  href={metArtistUrl(selected)!}
-                  target="_blank"
-                  rel="noreferrer"
+              ) : selected.source === 'met' && inAppArtistHref(selected) ? (
+                <Link
+                  to={inAppArtistHref(selected)!}
                   className="text-sm text-sky-400 hover:underline"
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    onClose();
+                  }}
                 >
-                  {selected.artist.label} (Met search)
-                </a>
+                  {selected.artist.label}
+                </Link>
               ) : (
                 <span className="text-sm text-zinc-200">{selected.artist.label}</span>
               )}

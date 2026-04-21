@@ -26,10 +26,22 @@ export function artistKey(a: Artwork): string | null {
   return ext ? `${a.source}:${ext}` : null;
 }
 
-export function metArtistUrl(a: Artwork): string | null {
-  const label = a.artist?.label?.trim();
-  if (!label) return null;
-  return `https://www.metmuseum.org/art/collection/search?q=${encodeURIComponent(label)}`;
+/** In-app artist gallery: `/art/artist/:source/:externalId` with optional `?label=`. */
+export function artistViewHref(
+  source: string,
+  externalId: string,
+  label: string | null | undefined
+): string {
+  const path = `/art/artist/${encodeURIComponent(source)}/${encodeURIComponent(externalId)}`;
+  const lab = label?.trim();
+  return lab ? `${path}?label=${encodeURIComponent(lab)}` : path;
+}
+
+/** Same route shape as saved-artist links in the rail; `null` if no stable artist id. */
+export function inAppArtistHref(a: Artwork): string | null {
+  const ext = artistExternalId(a);
+  if (!ext) return null;
+  return artistViewHref(a.source, ext, a.artist?.label ?? null);
 }
 
 export function threadNewHrefForArtwork(a: Artwork): string {

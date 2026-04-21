@@ -1,13 +1,8 @@
 import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatThreadDate } from '../lib/format';
-import { normalizeHttpsImageUrl } from '../lib/artRouteUtils';
+import { artistViewHref, normalizeHttpsImageUrl } from '../lib/artRouteUtils';
 import { useArtRouteOptional } from '../contexts/ArtRouteContext';
-
-function artistHref(source: string, externalId: string, label: string | null): string {
-  const path = `/art/artist/${encodeURIComponent(source)}/${encodeURIComponent(externalId)}`;
-  return label?.trim() ? `${path}?label=${encodeURIComponent(label.trim())}` : path;
-}
 
 function CollapsibleRailSection({
   title,
@@ -102,7 +97,7 @@ export default function ArtRightRail({ compactRail = false }: { compactRail?: bo
         {savedArtistsRows.map((r) => (
           <li key={`${r.source}:${r.external_id}`} className="truncate">
             <Link
-              to={artistHref(r.source, r.external_id, r.label)}
+              to={artistViewHref(r.source, r.external_id, r.label)}
               className="text-zinc-300 hover:text-white no-underline hover:underline"
             >
               {r.label ?? `${r.source} · ${r.external_id}`}
