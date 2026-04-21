@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useQuery } from '@tanstack/react-query';
 import { getArtCombinedPage } from '../lib/api';
 import { catalogPageUrl } from '../lib/artTweet';
@@ -11,6 +12,7 @@ import ArtRightRail from '../components/ArtRightRail';
 import ArtworkDetailModal from '../components/ArtworkDetailModal';
 
 export default function Art() {
+  useDocumentTitle('Art');
   const {
     user,
     qApplied,

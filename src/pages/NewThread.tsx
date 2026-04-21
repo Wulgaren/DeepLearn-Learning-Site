@@ -5,6 +5,7 @@ import { createThreadFromTweet } from '../lib/api';
 import type { ArtSource } from '../types/art';
 import { getErrorMessage } from '../lib/errors';
 import { normalizeHttpsImageUrl } from '../lib/artRouteUtils';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 type ThreadNewState = {
   tweet?: string;
@@ -21,6 +22,7 @@ type ThreadNewState = {
  * - State: ... + artSource, artExternalId for deduped Art-topic threads
  */
 export default function NewThread() {
+  useDocumentTitle('New thread');
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();

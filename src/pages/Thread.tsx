@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getThread, askThread, expandThreadReplies } from '../lib/api';
@@ -10,6 +10,7 @@ import PostRow from '../components/PostRow';
 import ShareButton from '../components/ShareButton';
 import type { ThreadReplyItem } from '../types';
 import { isTypedReply } from '../types';
+import { useDocumentTitle, truncateForTabTitle } from '../hooks/useDocumentTitle';
 
 export default function Thread() {
   const { user } = useAuth();
@@ -41,6 +42,14 @@ export default function Thread() {
     queryFn: () => getThread(threadId!),
     enabled: !!threadId,
   });
+
+  const threadDocTitle = useMemo(() => {
+    const post = data?.thread?.main_post?.trim();
+    if (!post) return 'Thread';
+    return truncateForTabTitle(post);
+  }, [data?.thread?.main_post]);
+
+  useDocumentTitle(threadDocTitle);
 
   const expandMutation = useMutation({
     mutationFn: () => expandThreadReplies(threadId!),

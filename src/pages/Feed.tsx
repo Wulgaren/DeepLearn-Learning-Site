@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getFeed, generateFeed } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
 import { formatThreadDate } from '../lib/format';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useCopyLink } from '../hooks/useCopyLink';
 import CopyLinkToast from '../components/CopyLinkToast';
 import PostRow from '../components/PostRow';
@@ -11,6 +12,7 @@ import ShareButton from '../components/ShareButton';
 import type { FeedTopic, ThreadSummary } from '../types';
 
 export default function Feed() {
+  useDocumentTitle('Topics');
   const [topicInput, setTopicInput] = useState('');
   const { copyLink, linkCopied } = useCopyLink();
   const queryClient = useQueryClient();

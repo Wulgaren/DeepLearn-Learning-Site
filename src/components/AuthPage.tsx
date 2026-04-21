@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getErrorMessage } from '../lib/errors';
@@ -46,6 +47,7 @@ const copy: Record<
 };
 
 export default function AuthPage({ mode }: { mode: AuthMode }) {
+  useDocumentTitle(copy[mode].title);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
