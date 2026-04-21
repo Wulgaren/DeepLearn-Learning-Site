@@ -9,6 +9,7 @@ import { useCopyLink } from '../hooks/useCopyLink';
 import CopyLinkToast from '../components/CopyLinkToast';
 import PostRow from '../components/PostRow';
 import ShareButton from '../components/ShareButton';
+import { threadDisplayLabelFromPost } from '../lib/threadDisplayLabel';
 import type { FeedTopic, ThreadSummary } from '../types';
 
 export default function Feed() {
@@ -133,7 +134,7 @@ export default function Feed() {
                         <PostRow
                           as="link"
                           to={`/thread/${thread.id}`}
-                          label="Thread"
+                          label={threadDisplayLabelFromPost(thread.main_post)}
                           meta={`${Array.isArray(thread.replies) ? thread.replies.length : 0} replies · ${formatThreadDate(thread.created_at)}`}
                           body={thread.main_post}
                           lineClamp={3}

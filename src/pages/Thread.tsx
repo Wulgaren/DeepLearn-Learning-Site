@@ -11,6 +11,7 @@ import ShareButton from '../components/ShareButton';
 import type { ThreadReplyItem } from '../types';
 import { isTypedReply } from '../types';
 import { useDocumentTitle, truncateForTabTitle } from '../hooks/useDocumentTitle';
+import { threadDisplayLabelFromPost } from '../lib/threadDisplayLabel';
 
 export default function Thread() {
   const { user } = useAuth();
@@ -163,7 +164,7 @@ export default function Thread() {
         )}
         <PostRow
           as="div"
-          label="Thread"
+          label={threadDisplayLabelFromPost(thread.main_post)}
           meta={replyMeta}
           body={thread.main_post}
           bodyClassName="mt-2 text-[1.05rem] leading-relaxed whitespace-pre-wrap break-words text-zinc-100"
@@ -216,7 +217,7 @@ export default function Thread() {
 
       {/* Ask box – under main post when anchor is null (logged in only) */}
       {user && replyFormAnchor === null && !thread.expand_pending && (
-        <section className="px-1 py-4 pb-8 border-b border-zinc-800/80">
+        <section className="px-1 py-4 border-b border-zinc-800/80">
           <form onSubmit={handleAsk} className="flex gap-3">
             <div className="h-10 w-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-400 shrink-0">
               You

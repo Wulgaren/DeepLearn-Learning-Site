@@ -8,6 +8,7 @@ import { useCopyLink } from '../hooks/useCopyLink';
 import CopyLinkToast from '../components/CopyLinkToast';
 import PostRow from '../components/PostRow';
 import ShareButton from '../components/ShareButton';
+import { threadDisplayLabelFromPost } from '../lib/threadDisplayLabel';
 import type { ThreadSummary } from '../types';
 
 export default function Home() {
@@ -143,7 +144,7 @@ export default function Home() {
                 key={i}
                 as="link"
                 to={`/thread/new#${encodeURIComponent(tweet)}`}
-                label="For you"
+                label={threadDisplayLabelFromPost(tweet)}
                 body={tweet}
               />
             ))}
@@ -165,7 +166,7 @@ export default function Home() {
                 key={thread.id}
                 as="link"
                 to={`/thread/${thread.id}`}
-                label="Thread"
+                label={threadDisplayLabelFromPost(thread.main_post)}
                 meta={`${Array.isArray(thread.replies) ? thread.replies.length : 0} replies · ${formatThreadDate(thread.created_at)}`}
                 body={thread.main_post}
                 lineClamp={2}

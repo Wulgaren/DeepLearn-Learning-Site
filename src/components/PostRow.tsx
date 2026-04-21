@@ -49,8 +49,8 @@ export default function PostRow(props: PostRowProps) {
     <>
       <div className={avatarClasses[avatar]}>{avatar}</div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-zinc-100">{label}</span>
+        <div className="flex items-center gap-2 text-sm min-w-0">
+          <span className="font-semibold text-zinc-100 truncate min-w-0">{label}</span>
           {meta != null && (
             <>
               <span className="text-zinc-500">•</span>
