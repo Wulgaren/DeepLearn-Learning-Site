@@ -16,7 +16,7 @@ Turn any topic into a Twitter-style AI feed: generate threads with Groq, open th
      - `GROQ_API_KEY` – [Groq](https://console.groq.com/) API key  
      - `EUROPEANA_API_KEY` – [Europeana Search API](https://pro.europeana.eu/page/apis) key (required for the **Art** tab’s Europeana source; Met and Wikidata do not need it)
 
-2. **Supabase** – In the [Supabase SQL Editor](https://supabase.com/dashboard), run the contents of `supabase/schema.sql` to create tables and RLS (including `saved_artworks` / `saved_artists` for Art saves).
+2. **Supabase** – In the [Supabase SQL Editor](https://supabase.com/dashboard), run the contents of `supabase/schema.sql` to create tables and RLS (including `saved_artists` for starred artists; saved artwork is stored as threads under the Art topic).
 
 3. **Install and run with Netlify (recommended for debugging):**
 

@@ -1,6 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ConditionalArtRouteLayout from './components/ConditionalArtRouteLayout';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -9,6 +10,7 @@ import Feed from './pages/Feed';
 import Thread from './pages/Thread';
 import NewThread from './pages/NewThread';
 import Art from './pages/Art';
+import ArtArtist from './pages/ArtArtist';
 
 function App() {
   return (
@@ -34,13 +36,18 @@ function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <Layout />
+                <ConditionalArtRouteLayout>
+                  <Layout />
+                </ConditionalArtRouteLayout>
               </ProtectedRoute>
             }
           >
             <Route index element={<Home />} />
             <Route path="topics" element={<Feed />} />
-            <Route path="art" element={<Art />} />
+            <Route path="art" element={<Outlet />}>
+              <Route index element={<Art />} />
+              <Route path="artist/:source/:externalId" element={<ArtArtist />} />
+            </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

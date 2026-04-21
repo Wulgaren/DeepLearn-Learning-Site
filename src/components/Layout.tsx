@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import ArtRightRail from './ArtRightRail';
 
 const navInactiveClass = 'text-zinc-300 hover:text-zinc-100';
 
@@ -97,7 +98,16 @@ export default function Layout() {
   const isArt = location.pathname.startsWith('/art');
   const isThread = location.pathname.startsWith('/thread/');
   const isPublicThread = isThread && !user;
-  const headerTitle = isThread ? 'Post' : isTopics ? 'My topics' : isArt ? 'Art' : 'Home';
+  const isArtArtist = location.pathname.startsWith('/art/artist/');
+  const headerTitle = isThread
+    ? 'Post'
+    : isTopics
+      ? 'My topics'
+      : isArtArtist
+        ? 'Artist'
+        : isArt
+          ? 'Art'
+          : 'Home';
   const homeActive = !isTopics && !isThread && !isArt;
   const topicsActive = isTopics;
   const artActive = isArt;
@@ -124,7 +134,7 @@ export default function Layout() {
       <div className="mx-auto w-full max-w-6xl px-4">
         <div
           className={`grid gap-6 ${
-            isPublicThread || isArt
+            isPublicThread
               ? 'grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]'
               : 'grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_320px]'
           }`}
@@ -206,47 +216,51 @@ export default function Layout() {
             </div>
           </main>
 
-          {/* Right sidebar – hidden for public thread view and Art (Art page has its own rail) */}
-          {!isPublicThread && !isArt && (
-          <aside className="hidden lg:block sticky top-0 h-screen py-4">
-            <div className="space-y-4">
-              <form onSubmit={handleSearchSubmit} className="rounded-full border border-zinc-800 bg-zinc-950/60 px-4 py-2">
-                <input
-                  type="text"
-                  placeholder="What do you want to learn today?"
-                  value={searchTopic}
-                  onChange={(e) => setSearchTopic(e.target.value)}
-                  maxLength={500}
-                  className="w-full bg-transparent outline-none text-sm placeholder:text-zinc-500"
-                />
-              </form>
+          {/* Right sidebar – Art uses ArtRightRail; Home/topics use tips */}
+          {!isPublicThread && (
+            <aside className="hidden lg:block sticky top-0 h-screen py-4">
+              {isArt ? (
+                <ArtRightRail />
+              ) : (
+                <div className="space-y-4">
+                  <form onSubmit={handleSearchSubmit} className="rounded-full border border-zinc-800 bg-zinc-950/60 px-4 py-2">
+                    <input
+                      type="text"
+                      placeholder="What do you want to learn today?"
+                      value={searchTopic}
+                      onChange={(e) => setSearchTopic(e.target.value)}
+                      maxLength={500}
+                      className="w-full bg-transparent outline-none text-sm placeholder:text-zinc-500"
+                    />
+                  </form>
 
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
-                <h3 className="m-0 text-sm font-semibold">Tips</h3>
-                <p className="m-0 mt-2 text-sm text-zinc-400 leading-relaxed">
-                  Generate threads for a topic, then open one to read replies and ask follow-up questions.
-                </p>
-              </section>
+                  <section className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+                    <h3 className="m-0 text-sm font-semibold">Tips</h3>
+                    <p className="m-0 mt-2 text-sm text-zinc-400 leading-relaxed">
+                      Generate threads for a topic, then open one to read replies and ask follow-up questions.
+                    </p>
+                  </section>
 
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
-                <h3 className="m-0 text-sm font-semibold">What’s happening</h3>
-                <ul className="mt-3 space-y-3 text-sm text-zinc-400">
-                  <li>
-                    <p className="m-0 text-xs text-zinc-500">Try a topic</p>
-                    <p className="m-0 font-medium text-zinc-200">“React hooks”</p>
-                  </li>
-                  <li>
-                    <p className="m-0 text-xs text-zinc-500">Or</p>
-                    <p className="m-0 font-medium text-zinc-200">“SQL indexing”</p>
-                  </li>
-                  <li>
-                    <p className="m-0 text-xs text-zinc-500">Or</p>
-                    <p className="m-0 font-medium text-zinc-200">“System design”</p>
-                  </li>
-                </ul>
-              </section>
-            </div>
-          </aside>
+                  <section className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+                    <h3 className="m-0 text-sm font-semibold">What’s happening</h3>
+                    <ul className="mt-3 space-y-3 text-sm text-zinc-400">
+                      <li>
+                        <p className="m-0 text-xs text-zinc-500">Try a topic</p>
+                        <p className="m-0 font-medium text-zinc-200">“React hooks”</p>
+                      </li>
+                      <li>
+                        <p className="m-0 text-xs text-zinc-500">Or</p>
+                        <p className="m-0 font-medium text-zinc-200">“SQL indexing”</p>
+                      </li>
+                      <li>
+                        <p className="m-0 text-xs text-zinc-500">Or</p>
+                        <p className="m-0 font-medium text-zinc-200">“System design”</p>
+                      </li>
+                    </ul>
+                  </section>
+                </div>
+              )}
+            </aside>
           )}
         </div>
       </div>

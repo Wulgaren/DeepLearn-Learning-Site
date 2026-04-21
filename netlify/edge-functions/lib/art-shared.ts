@@ -116,7 +116,7 @@ export async function fetchMetPage(
   return { items: collected, nextPage: p };
 }
 
-function mapMetObject(o: Record<string, unknown>): NormalizedArtwork {
+export function mapMetObject(o: Record<string, unknown>): NormalizedArtwork {
   const objectID = o.objectID;
   const id = objectID != null ? String(objectID) : "unknown";
   const constituents = o.constituents as Array<{ constituentID?: number; name?: string }> | undefined;
@@ -199,7 +199,7 @@ function firstString(val: unknown): string | null {
   return null;
 }
 
-function mapEuropeanaItem(it: Record<string, unknown>, _index: number): NormalizedArtwork {
+export function mapEuropeanaItem(it: Record<string, unknown>, _index: number): NormalizedArtwork {
   const idRaw = typeof it.id === "string" ? it.id : `/item/${_index}`;
   const id = idRaw.replace(/^\/+/, "").replace(/\//g, "_") || String(_index);
   const title =

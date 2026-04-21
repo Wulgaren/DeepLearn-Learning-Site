@@ -39,3 +39,12 @@ export interface ArtCombinedPageResponse {
   items: Artwork[];
   nextCursor: string | null;
 }
+
+export interface ArtArtistPageResponse {
+  items: Artwork[];
+  nextCursor: string | null;
+  artistLabel: string | null;
+  wikiUrl: string | null;
+  metSearchUrl: string | null;
+  error?: string;
+}

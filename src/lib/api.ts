@@ -8,6 +8,7 @@ import type {
 } from '../types';
 import type {
   ArtCombinedPageResponse,
+  ArtArtistPageResponse,
   ArtSource,
   ArtEuropeanaPageResponse,
   ArtMetPageResponse,
@@ -194,5 +195,19 @@ export async function getArtWikidataPage(page: number): Promise<ArtWikidataPageR
   return apiFetch<ArtWikidataPageResponse>(
     `${API_BASE}/api/art-wikidata?page=${encodeURIComponent(String(page))}`
   );
+}
+
+export async function getArtArtistPage(opts: {
+  source: ArtSource;
+  externalId: string;
+  cursor: string | null;
+  label?: string | null;
+}): Promise<ArtArtistPageResponse> {
+  const params = new URLSearchParams();
+  params.set('source', opts.source);
+  params.set('externalId', opts.externalId);
+  if (opts.cursor) params.set('cursor', opts.cursor);
+  if (opts.label?.trim()) params.set('label', opts.label.trim());
+  return apiFetch<ArtArtistPageResponse>(`${API_BASE}/api/art-artist?${params.toString()}`);
 }
 
