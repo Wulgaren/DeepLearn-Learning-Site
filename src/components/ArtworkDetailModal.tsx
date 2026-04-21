@@ -199,18 +199,21 @@ export default function ArtworkDetailModal({
               href={selected.objectUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-block text-sm text-sky-400 hover:underline"
+              className="inline-flex items-center gap-1 text-sm text-white hover:underline"
             >
               Open in catalog
+              <span aria-hidden className="text-base leading-none">
+                →
+              </span>
             </a>
           )}
           {selected.artist?.label && (
-            <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex flex-wrap gap-1 items-center">
               <span className="text-sm text-zinc-400">Artist:</span>
               {inAppArtistHref(selected) ? (
                 <Link
                   to={inAppArtistHref(selected)!}
-                  className="text-sm text-sky-400 hover:underline"
+                  className="text-sm text-white hover:underline"
                   onClick={(e) => {
                     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
                     onClose();
@@ -223,7 +226,7 @@ export default function ArtworkDetailModal({
                   href={selected.artist.wikiUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-sm text-sky-400 hover:underline"
+                  className="text-sm text-white hover:underline"
                 >
                   {selected.artist.label}
                 </a>

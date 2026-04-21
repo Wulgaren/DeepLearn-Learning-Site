@@ -184,9 +184,12 @@ export default function Thread() {
                   href={thread.catalog_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-zinc-300 text-inherit no-underline"
+                  className="inline-flex items-center gap-1 text-white no-underline hover:underline hover:text-zinc-200"
                 >
                   Open in catalog
+                  <span aria-hidden className="text-sm leading-none">
+                    →
+                  </span>
                 </a>
               )}
               <ShareButton threadId={threadId!} copyLink={copyLink} />

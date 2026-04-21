@@ -71,16 +71,13 @@ function SidebarContent({
             Sign in
           </Link>
         ) : (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-            <p className="m-0 text-sm font-medium text-zinc-300">Signed in</p>
-            <button
-              type="button"
-              onClick={onLogout}
-              className="mt-3 w-full px-3 py-2 text-sm rounded-full border border-zinc-800 bg-zinc-950 hover:bg-zinc-900"
-            >
-              Log out
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="w-full px-3 py-2 text-sm rounded-full border border-zinc-800 bg-zinc-950 hover:bg-zinc-900"
+          >
+            Log out
+          </button>
         )}
       </div>
     </>
