@@ -324,9 +324,9 @@ SELECT ?item ?itemLabel ?image ?creator ?creatorLabel WHERE {
       title: label,
       imageUrl: imgUrl,
       thumbUrl: imgUrl,
-      description: "Data from Wikidata / Wikimedia Commons; verify license on file page.",
-      rights: "Wikimedia Commons — check file page for license.",
-      attribution: "Wikidata / Wikimedia Commons",
+      description: null,
+      rights: null,
+      attribution: null,
       objectUrl: qid.startsWith("Q") ? `https://www.wikidata.org/wiki/${qid}` : null,
       artist:
         creatorLabel || creatorId
