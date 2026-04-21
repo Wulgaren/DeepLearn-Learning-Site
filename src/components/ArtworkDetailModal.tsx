@@ -200,11 +200,6 @@ export default function ArtworkDetailModal({
           {selected.attribution && (
             <p className="m-0 text-xs text-zinc-500">{selected.attribution}</p>
           )}
-          {selected.source === 'wikidata' && !selected.rights && !selected.attribution && (
-            <p className="m-0 text-xs text-zinc-500">
-              License varies; verify image on Wikimedia Commons file page via Wikidata.
-            </p>
-          )}
           {selected.objectUrl && (
             <a
               href={selected.objectUrl}
