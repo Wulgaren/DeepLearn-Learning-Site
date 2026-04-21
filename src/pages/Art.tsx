@@ -47,7 +47,7 @@ export default function Art() {
   return (
     <div className="pb-10">
       <div className="lg:hidden mb-6">
-        <ArtRightRail />
+        <ArtRightRail compactRail />
       </div>
 
       {error && (
