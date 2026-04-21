@@ -4,7 +4,16 @@ import type {
   GetThreadResponse,
   AskThreadResponse,
   ThreadSummary,
+  ArtThreadSummary,
 } from '../types';
+import type {
+  ArtCombinedPageResponse,
+  ArtArtistPageResponse,
+  ArtSource,
+  ArtEuropeanaPageResponse,
+  ArtMetPageResponse,
+  ArtWikidataPageResponse,
+} from '../types/art';
 
 const API_BASE = ''; // all API routes are edge at /api/*
 const AI_RETRY_DELAY_MS = 1000;
@@ -110,15 +119,95 @@ export async function getHomeTweets(): Promise<{ tweets: string[] }> {
   });
 }
 
-export async function createThreadFromTweet(tweet: string): Promise<{ threadId: string }> {
+export async function createThreadFromTweet(body: {
+  tweet: string;
+  mainImageUrl?: string | null;
+  catalogUrl?: string | null;
+  /** Save-for-later only: create shell, no AI until open. */
+  deferReplies?: boolean;
+  artSource?: ArtSource;
+  artExternalId?: string;
+}): Promise<{ threadId: string }> {
   return withOneRetry(() =>
     apiFetch<{ threadId: string }>(`${API_BASE}/api/thread-from-tweet`, {
       method: 'POST',
-      body: JSON.stringify({ tweet }),
+      body: JSON.stringify({
+        tweet: body.tweet,
+        ...(body.mainImageUrl ? { mainImageUrl: body.mainImageUrl } : {}),
+        ...(body.catalogUrl ? { catalogUrl: body.catalogUrl } : {}),
+        ...(body.deferReplies ? { deferReplies: true } : {}),
+        ...(body.artSource ? { artSource: body.artSource } : {}),
+        ...(body.artExternalId ? { artExternalId: body.artExternalId } : {}),
+      }),
     })
   );
+}
+
+export async function expandThreadReplies(threadId: string): Promise<{
+  expanded: boolean;
+  reason?: string;
+  replyCount?: number;
+}> {
+  return withOneRetry(() =>
+    apiFetch<{ expanded: boolean; reason?: string; replyCount?: number }>(
+      `${API_BASE}/api/thread-expand-replies`,
+      { method: 'POST', body: JSON.stringify({ threadId }) }
+    )
+  );
+}
+
+export async function getArtThreads(): Promise<{ threads: ArtThreadSummary[] }> {
+  return apiFetch<{ threads: ArtThreadSummary[] }>(`${API_BASE}/api/art-threads`);
+}
+
+export async function getArtCombinedPage(opts: {
+  seed: string;
+  cursor: string | null;
+  q: string;
+}): Promise<ArtCombinedPageResponse> {
+  const params = new URLSearchParams();
+  params.set('seed', opts.seed);
+  if (opts.cursor) params.set('cursor', opts.cursor);
+  if (opts.q.trim()) params.set('q', opts.q.trim());
+  const qs = params.toString();
+  return apiFetch<ArtCombinedPageResponse>(`${API_BASE}/api/art-combined?${qs}`);
 }
 
 export async function getHomeThreads(): Promise<{ threads: ThreadSummary[] }> {
   return apiFetch<{ threads: ThreadSummary[] }>(`${API_BASE}/api/home-threads`);
 }
+
+export async function getArtMetPage(page: number): Promise<ArtMetPageResponse> {
+  return apiFetch<ArtMetPageResponse>(`${API_BASE}/api/art-met?page=${encodeURIComponent(String(page))}`);
+}
+
+export async function getArtEuropeanaPage(cursor: string | null, q: string): Promise<ArtEuropeanaPageResponse> {
+  const params = new URLSearchParams();
+  if (cursor) params.set('cursor', cursor);
+  if (q.trim()) params.set('q', q.trim());
+  const qs = params.toString();
+  return apiFetch<ArtEuropeanaPageResponse>(
+    `${API_BASE}/api/art-europeana${qs ? `?${qs}` : ''}`
+  );
+}
+
+export async function getArtWikidataPage(page: number): Promise<ArtWikidataPageResponse> {
+  return apiFetch<ArtWikidataPageResponse>(
+    `${API_BASE}/api/art-wikidata?page=${encodeURIComponent(String(page))}`
+  );
+}
+
+export async function getArtArtistPage(opts: {
+  source: ArtSource;
+  externalId: string;
+  cursor: string | null;
+  label?: string | null;
+}): Promise<ArtArtistPageResponse> {
+  const params = new URLSearchParams();
+  params.set('source', opts.source);
+  params.set('externalId', opts.externalId);
+  if (opts.cursor) params.set('cursor', opts.cursor);
+  if (opts.label?.trim()) params.set('label', opts.label.trim());
+  return apiFetch<ArtArtistPageResponse>(`${API_BASE}/api/art-artist?${params.toString()}`);
+}
+

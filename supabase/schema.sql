@@ -17,6 +17,19 @@ create table if not exists public.threads (
   created_at timestamptz not null default now()
 );
 
+-- Optional hero image for thread main post (e.g. art “learn more” flows). Safe to run on existing DBs:
+alter table public.threads add column if not exists main_image_url text;
+-- External source page (museum / Europeana / Wikidata), shown as “Open in catalog” — not inlined in main_post:
+alter table public.threads add column if not exists catalog_url text;
+-- Art feed: one row per saved artwork (see art topic); AI replies generated on first open when expand_pending:
+alter table public.threads add column if not exists art_source text;
+alter table public.threads add column if not exists art_external_id text;
+alter table public.threads add column if not exists expand_pending boolean not null default false;
+
+create unique index if not exists threads_art_dedupe_idx
+  on public.threads (topic_id, art_source, art_external_id)
+  where art_source is not null and art_external_id is not null;
+
 -- Follow-up Q&A within a thread
 create table if not exists public.follow_ups (
   id uuid primary key default gen_random_uuid(),
@@ -93,6 +106,22 @@ create policy "Users can insert threads for own topics"
     exists (select 1 from public.topics t where t.id = topic_id and t.user_id = auth.uid())
   );
 
+create policy "Users can delete threads for own topics"
+  on public.threads for delete
+  using (
+    exists (select 1 from public.topics t where t.id = topic_id and t.user_id = auth.uid())
+  );
+
+drop policy if exists "Users can update threads for own topics" on public.threads;
+create policy "Users can update threads for own topics"
+  on public.threads for update
+  using (
+    exists (select 1 from public.topics t where t.id = topic_id and t.user_id = auth.uid())
+  )
+  with check (
+    exists (select 1 from public.topics t where t.id = topic_id and t.user_id = auth.uid())
+  );
+
 -- Follow-ups: select/insert for threads owned by user
 create policy "Users can view follow_ups of own threads"
   on public.follow_ups for select
@@ -112,3 +141,33 @@ create policy "Users can insert follow_ups for own threads"
       where th.id = thread_id and t.user_id = auth.uid()
     )
   );
+
+-- Saved artists from Art feed (normalized external refs per source). Saved artwork uses threads (Art topic).
+create table if not exists public.saved_artists (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  source text not null check (source in ('met', 'europeana', 'wikidata')),
+  external_id text not null,
+  label text,
+  snapshot jsonb,
+  created_at timestamptz not null default now(),
+  unique (user_id, source, external_id)
+);
+
+create index if not exists saved_artists_user_id_idx on public.saved_artists(user_id);
+
+alter table public.saved_artists enable row level security;
+
+create policy "Users can view own saved_artists"
+  on public.saved_artists for select
+  using (auth.uid() = user_id);
+create policy "Users can insert own saved_artists"
+  on public.saved_artists for insert
+  with check (auth.uid() = user_id);
+create policy "Users can delete own saved_artists"
+  on public.saved_artists for delete
+  using (auth.uid() = user_id);
+create policy "Users can update own saved_artists"
+  on public.saved_artists for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

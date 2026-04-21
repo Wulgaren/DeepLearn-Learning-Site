@@ -60,7 +60,7 @@ export default async function handler(req: Request, context: Context): Promise<R
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const { data: thread, error: threadError } = await supabase
     .from("threads")
-    .select("id, main_post")
+    .select("id, main_post, main_image_url")
     .eq("id", threadId)
     .single();
 
@@ -71,7 +71,11 @@ export default async function handler(req: Request, context: Context): Promise<R
 
   const siteUrl = context.site?.url ?? new URL(req.url).origin;
   const pageUrl = `${siteUrl}/thread/${threadId}`;
-  const imageUrl = `${siteUrl}/learning-icon.svg`;
+  const mainImg =
+    typeof thread.main_image_url === "string" && /^https:\/\//i.test(thread.main_image_url.trim())
+      ? thread.main_image_url.trim()
+      : null;
+  const imageUrl = mainImg ?? `${siteUrl}/learning-icon.svg`;
   const title = truncate(String(thread.main_post).replace(/\s+/g, " ").trim(), 60);
   const description = truncate(String(thread.main_post).replace(/\s+/g, " ").trim(), 200);
 
@@ -85,7 +89,7 @@ export default async function handler(req: Request, context: Context): Promise<R
   <meta property="og:url" content="${escapeHtml(pageUrl)}" />
   <meta property="og:image" content="${escapeHtml(imageUrl)}" />
   <meta property="og:site_name" content="DeepLearn" />
-  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:card" content="${mainImg ? "summary_large_image" : "summary"}" />
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(description)}" />
   <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />

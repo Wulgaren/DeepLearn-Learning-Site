@@ -1,3 +1,5 @@
+import { verifySupabaseUserAccessToken } from "./supabase-jwt.ts";
+
 export const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
@@ -6,6 +8,8 @@ export const corsHeaders: Record<string, string> = {
 
 const LOG_PREFIX = "[edge]";
 const MAX_PAYLOAD_CHARS = 800;
+/** AI completion text in logs — keep short to reduce accidental PII in Netlify logs. */
+const MAX_AI_LOG_RAW_CHARS = 200;
 
 type LogLevel = "info" | "warn" | "error";
 
@@ -69,30 +73,27 @@ export function getTokenFromCookie(req: Request): string | null {
   const cookie = req.headers.get("cookie");
   if (!cookie) return null;
   const match = cookie.match(new RegExp(`${SESSION_COOKIE_NAME}=([^;]+)`));
-  const token = match?.[1]?.trim();
-  return token && token.length > 0 ? token : null;
-}
-
-function parseJwtPayload(token: string): { sub?: string } | null {
+  let raw = match?.[1]?.trim();
+  if (!raw) return null;
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload && typeof payload === "object" ? payload : null;
+    raw = decodeURIComponent(raw);
   } catch {
-    return null;
+    /* use raw cookie fragment */
   }
+  return raw.length > 0 ? raw : null;
 }
 
-export function getUserId(req: Request): string | null {
+/** Verified user id (`sub`) from Supabase access token (Bearer or session cookie). */
+export async function getUserId(req: Request): Promise<string | null> {
   const auth = req.headers.get("authorization");
   let token: string | null = null;
   if (auth?.startsWith("Bearer ")) {
-    token = auth.slice(7);
+    token = auth.slice(7).trim();
   } else {
     token = getTokenFromCookie(req);
   }
   if (!token) return null;
-  const payload = parseJwtPayload(token);
-  return payload?.sub ?? null;
+  return verifySupabaseUserAccessToken(token);
 }
 
 export function jsonResponse(body: unknown, status = 200): Response {
@@ -121,17 +122,24 @@ export function logAi(
     return;
   }
   const truncated = rawResponse
-    ? rawResponse.length <= MAX_PAYLOAD_CHARS
+    ? rawResponse.length <= MAX_AI_LOG_RAW_CHARS
       ? rawResponse
-      : rawResponse.slice(0, MAX_PAYLOAD_CHARS) + `... (${rawResponse.length} chars)`
+      : rawResponse.slice(0, MAX_AI_LOG_RAW_CHARS) + `…(${rawResponse.length}c)`
     : "(empty)";
   log(fn, "info", "AI response", { model, ...(parts.length > 1 ? { usage: parts.slice(1).join(", ") } : {}), raw: truncated });
 }
 
 const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
 const CLASSIFIER_MODEL = "llama-3.1-8b-instant";
+/** When primary model hits TPM/rate limits (429), retry with this model. */
+export const GROQ_FALLBACK_MODEL = CLASSIFIER_MODEL;
 export const GROQ_COMPOUND_MODEL = "groq/compound";
 const CLASSIFIER_MAX_TOKENS = 10;
+
+function isGroqRateLimitError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes("Groq API 429");
+}
 
 export interface GroqMessage {
   role: "user" | "assistant" | "system";
@@ -173,6 +181,37 @@ export async function groqCompletion(
   };
   const content = data.choices?.[0]?.message?.content?.trim() ?? "";
   return { content, usage: data.usage };
+}
+
+/**
+ * Same as {@link groqCompletion}, but on Groq HTTP 429 (rate / TPM limit) retries once with
+ * {@link GROQ_FALLBACK_MODEL} when the requested model differs from the fallback.
+ */
+export async function groqCompletionWithFallback(
+  apiKey: string,
+  opts: GroqCompletionOptions,
+  logContext?: { fn: string }
+): Promise<{
+  content: string;
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  modelUsed: string;
+}> {
+  const fallbackModel = GROQ_FALLBACK_MODEL;
+  try {
+    const result = await groqCompletion(apiKey, opts);
+    return { ...result, modelUsed: opts.model };
+  } catch (err) {
+    if (!isGroqRateLimitError(err) || opts.model === fallbackModel) {
+      throw err;
+    }
+    const fn = logContext?.fn ?? "groq";
+    log(fn, "warn", "Groq rate limit on primary model, retrying fallback", {
+      primary: opts.model,
+      fallback: fallbackModel,
+    });
+    const result = await groqCompletion(apiKey, { ...opts, model: fallbackModel });
+    return { ...result, modelUsed: fallbackModel };
+  }
 }
 
 /** Returns true if the classifier reply starts with YES (use web grounding). */

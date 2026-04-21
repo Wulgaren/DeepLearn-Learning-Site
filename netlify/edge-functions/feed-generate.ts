@@ -8,7 +8,7 @@ import {
   logAi,
   sanitizeForPrompt,
   sanitizeForDb,
-  groqCompletion,
+  groqCompletionWithFallback,
   classifyNeedsWebGrounding,
   GROQ_COMPOUND_MODEL,
 } from "./lib/shared.ts";
@@ -47,7 +47,7 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const userId = getUserId(req);
+  const userId = await getUserId(req);
   if (!userId) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
@@ -102,14 +102,18 @@ Rules: Output a single JSON object only. Do not wrap in code fences. Do not put 
 
   let raw: string;
   try {
-    const result = await groqCompletion(groqApiKey, {
-      model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 8192,
-    });
+    const result = await groqCompletionWithFallback(
+      groqApiKey,
+      {
+        model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 8192,
+      },
+      { fn: FN }
+    );
     raw = result.content;
-    logAi(FN, { model, rawResponse: raw, usage: result.usage });
+    logAi(FN, { model: result.modelUsed, rawResponse: raw, usage: result.usage });
   } catch (err) {
     logAi(FN, { model, error: err });
     return jsonResponse({ error: "AI service error" }, 502);

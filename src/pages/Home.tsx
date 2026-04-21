@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInterests, setInterests, getHomeTweets, getHomeThreads } from '../lib/api';
 import { getErrorMessage } from '../lib/errors';
 import { formatThreadDate } from '../lib/format';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useCopyLink } from '../hooks/useCopyLink';
 import CopyLinkToast from '../components/CopyLinkToast';
 import PostRow from '../components/PostRow';
@@ -10,6 +11,7 @@ import ShareButton from '../components/ShareButton';
 import type { ThreadSummary } from '../types';
 
 export default function Home() {
+  useDocumentTitle('Home');
   const [tagInput, setTagInput] = useState('');
   const { copyLink, linkCopied } = useCopyLink();
   const queryClient = useQueryClient();
