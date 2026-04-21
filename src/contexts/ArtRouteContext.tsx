@@ -4,8 +4,8 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -58,10 +58,12 @@ export function ArtRouteProvider({ children }: { children: ReactNode }) {
   const qApplied = searchParams.get('q')?.trim() || 'painting';
   const [europeanaQ, setEuropeanaQ] = useState(qApplied);
   const [feedSeed, setFeedSeed] = useState(() => getArtFeedSeed());
-
-  useEffect(() => {
-    setEuropeanaQ(searchParams.get('q')?.trim() || 'painting');
-  }, [searchParams]);
+  /** Last `q` we synced from the URL — when it changes (back/forward, nav), mirror into the input. */
+  const syncedUrlQRef = useRef(qApplied);
+  if (qApplied !== syncedUrlQRef.current) {
+    syncedUrlQRef.current = qApplied;
+    setEuropeanaQ(qApplied);
+  }
 
   const { data: artThreadsData } = useQuery({
     queryKey: ['artThreads', user?.id],
