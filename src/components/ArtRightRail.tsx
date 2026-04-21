@@ -27,7 +27,7 @@ export default function ArtRightRail() {
         onSubmit={applySearch}
         className="flex items-center gap-2 min-w-0"
       >
-        <div className="flex-1 min-w-0 h-10 rounded-full border border-zinc-800 bg-zinc-950/60 px-4 flex items-center">
+        <div className="flex-1 min-w-0 h-10 rounded-full border border-black bg-zinc-950/60 px-4 flex items-center">
           <input
             type="search"
             value={europeanaQ}
@@ -40,7 +40,7 @@ export default function ArtRightRail() {
         <button
           type="button"
           onClick={onShuffle}
-          className="shrink-0 h-10 px-4 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white text-sm inline-flex items-center justify-center"
+          className="shrink-0 h-10 px-4 rounded-full border border-black font-semibold bg-zinc-100 text-black hover:bg-white text-sm inline-flex items-center justify-center"
         >
           Shuffle
         </button>
