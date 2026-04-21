@@ -1,3 +1,5 @@
+import { verifySupabaseUserAccessToken } from "./supabase-jwt.ts";
+
 export const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
@@ -71,31 +73,27 @@ export function getTokenFromCookie(req: Request): string | null {
   const cookie = req.headers.get("cookie");
   if (!cookie) return null;
   const match = cookie.match(new RegExp(`${SESSION_COOKIE_NAME}=([^;]+)`));
-  const token = match?.[1]?.trim();
-  return token && token.length > 0 ? token : null;
-}
-
-function parseJwtPayload(token: string): { sub?: string } | null {
+  let raw = match?.[1]?.trim();
+  if (!raw) return null;
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload && typeof payload === "object" ? payload : null;
+    raw = decodeURIComponent(raw);
   } catch {
-    return null;
+    /* use raw cookie fragment */
   }
+  return raw.length > 0 ? raw : null;
 }
 
-/** User id from JWT `sub` (decoded payload; edge does not verify signature). */
-export function getUserId(req: Request): string | null {
+/** Verified user id (`sub`) from Supabase access token (Bearer or session cookie). */
+export async function getUserId(req: Request): Promise<string | null> {
   const auth = req.headers.get("authorization");
   let token: string | null = null;
   if (auth?.startsWith("Bearer ")) {
-    token = auth.slice(7);
+    token = auth.slice(7).trim();
   } else {
     token = getTokenFromCookie(req);
   }
   if (!token) return null;
-  const payload = parseJwtPayload(token);
-  return payload?.sub ?? null;
+  return verifySupabaseUserAccessToken(token);
 }
 
 export function jsonResponse(body: unknown, status = 200): Response {

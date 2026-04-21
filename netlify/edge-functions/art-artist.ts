@@ -6,7 +6,15 @@ import {
   mapMetObject,
 } from "./lib/art-shared.ts";
 import { decodeArtCursorJson, encodeArtCursorJson } from "./lib/art-cursor.ts";
-import { clampArtExternalId, clampArtSearchQuery } from "./lib/art-limits.ts";
+import {
+  clampArtExternalId,
+  clampArtSearchQuery,
+  clampEuropeanaCursorParam,
+  clampMetArtistObjectOffset,
+  clampWikidataArtistSparqlOffset,
+  MAX_MET_ARTIST_OBJECT_OFFSET,
+  MAX_WIKIDATA_ARTIST_SPARQL_OFFSET,
+} from "./lib/art-limits.ts";
 import { corsHeaders, getUserId, jsonResponse, log } from "./lib/shared.ts";
 
 const FN = "art-artist";
@@ -19,10 +27,13 @@ function decodeCursor(raw: string): CursorState | null {
   const o = decodeArtCursorJson(raw);
   if (!o || typeof o !== "object" || o === null) return null;
   const rec = o as Record<string, unknown>;
+  const wdRaw = typeof rec.wdOffset === "number" ? rec.wdOffset : 0;
+  const metRaw = typeof rec.metOffset === "number" ? rec.metOffset : 0;
+  const euRaw = rec.euCursor === null || typeof rec.euCursor === "string" ? rec.euCursor : null;
   return {
-    wdOffset: typeof rec.wdOffset === "number" ? rec.wdOffset : 0,
-    metOffset: typeof rec.metOffset === "number" ? rec.metOffset : 0,
-    euCursor: rec.euCursor === null || typeof rec.euCursor === "string" ? rec.euCursor : null,
+    wdOffset: clampWikidataArtistSparqlOffset(wdRaw),
+    metOffset: clampMetArtistObjectOffset(metRaw),
+    euCursor: clampEuropeanaCursorParam(euRaw),
   };
 }
 
@@ -230,7 +241,7 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const userId = getUserId(req);
+  const userId = await getUserId(req);
   if (!userId) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
@@ -272,13 +283,16 @@ export default async function handler(req: Request, _context: Context): Promise<
           200
         );
       }
+      const wdOff = clampWikidataArtistSparqlOffset(state.wdOffset ?? 0);
       const [artistLabel, wd] = await Promise.all([
         wikidataEntityLabel(qid),
-        fetchWikidataByArtist(qid, state.wdOffset ?? 0),
+        fetchWikidataByArtist(qid, wdOff),
       ]);
-      const hasMore = wd.items.length === BATCH;
+      const nextWd = clampWikidataArtistSparqlOffset(wd.nextOffset);
+      const hasMore =
+        wd.items.length === BATCH && wd.nextOffset <= MAX_WIKIDATA_ARTIST_SPARQL_OFFSET;
       const nextState: CursorState = {
-        wdOffset: wd.nextOffset,
+        wdOffset: nextWd,
         metOffset: 0,
         euCursor: null,
       };
@@ -299,11 +313,14 @@ export default async function handler(req: Request, _context: Context): Promise<
         (externalId.startsWith("label:") ? externalId.slice("label:".length) : null) ||
         externalId;
       const name = clampArtSearchQuery(rawName) || rawName.trim().slice(0, 200);
-      const { items, nextOffset, totalIds } = await fetchMetByArtistName(name, state.metOffset ?? 0);
-      const hasMore = nextOffset < totalIds && items.length > 0;
+      const metOff = clampMetArtistObjectOffset(state.metOffset ?? 0);
+      const { items, nextOffset, totalIds } = await fetchMetByArtistName(name, metOff);
+      const nextMet = clampMetArtistObjectOffset(nextOffset);
+      const hasMore =
+        nextMet < totalIds && items.length > 0 && nextOffset <= MAX_MET_ARTIST_OBJECT_OFFSET;
       const nextState: CursorState = {
         wdOffset: 0,
-        metOffset: nextOffset,
+        metOffset: nextMet,
         euCursor: null,
       };
       const nextCursor = hasMore ? encodeArtCursorJson(nextState) : null;
@@ -329,7 +346,7 @@ export default async function handler(req: Request, _context: Context): Promise<
     const nextState: CursorState = {
       wdOffset: 0,
       metOffset: 0,
-      euCursor: eu.nextCursor,
+      euCursor: clampEuropeanaCursorParam(eu.nextCursor),
     };
     const nextCursor = eu.nextCursor ? encodeArtCursorJson(nextState) : null;
     log(FN, "info", "europeana ok", { n: eu.items.length, name });

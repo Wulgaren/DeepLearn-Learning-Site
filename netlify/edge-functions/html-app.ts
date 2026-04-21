@@ -52,7 +52,7 @@ export default async function handler(
   }
 
   const origin = url.origin;
-  const userId = getUserId(req);
+  const userId = await getUserId(req);
 
   // Prefer SPA when client has proven JS (cookie set by no-JS upgrade script).
   const prefersSpa =

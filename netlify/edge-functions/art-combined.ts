@@ -8,7 +8,15 @@ import {
   hashSeed,
 } from "./lib/art-shared.ts";
 import { decodeArtCursorJson, encodeArtCursorJson } from "./lib/art-cursor.ts";
-import { clampArtSearchQuery, MAX_ART_SEED_LEN } from "./lib/art-limits.ts";
+import {
+  clampArtCombinedMetPage,
+  clampArtSearchQuery,
+  clampEuropeanaCursorParam,
+  clampWikidataPage,
+  MAX_ART_COMBINED_MET_PAGE,
+  MAX_ART_SEED_LEN,
+  MAX_WIKIDATA_PAGE,
+} from "./lib/art-limits.ts";
 import { corsHeaders, getUserId, jsonResponse, log } from "./lib/shared.ts";
 
 const FN = "art-combined";
@@ -32,11 +40,12 @@ function decodeCursor(raw: string): CursorState | null {
   if (typeof rec.metPage !== "number" || typeof rec.wdPage !== "number") return null;
   const europeanaQ =
     typeof rec.europeanaQ === "string" ? clampArtSearchQuery(rec.europeanaQ) || "painting" : "painting";
-  const europeanaCursor =
+  const europeanaCursorRaw =
     rec.europeanaCursor === null || typeof rec.europeanaCursor === "string" ? rec.europeanaCursor : null;
+  const europeanaCursor = clampEuropeanaCursorParam(europeanaCursorRaw);
   return {
-    metPage: rec.metPage,
-    wdPage: rec.wdPage,
+    metPage: clampArtCombinedMetPage(rec.metPage),
+    wdPage: clampWikidataPage(rec.wdPage),
     europeanaCursor,
     europeanaQ,
     europeanaSkip: rec.europeanaSkip === true,
@@ -49,8 +58,8 @@ function initialCursor(seed: string, qParam: string | null): CursorState {
       ? clampArtSearchQuery(qParam) || "painting"
       : EUROPEANA_DEFAULT_TERMS[hashSeed(seed + ":e") % EUROPEANA_DEFAULT_TERMS.length]!;
   return {
-    metPage: hashSeed(seed + ":m") % 900,
-    wdPage: hashSeed(seed + ":w") % 600,
+    metPage: clampArtCombinedMetPage(hashSeed(seed + ":m") % 900),
+    wdPage: clampWikidataPage(hashSeed(seed + ":w") % (MAX_WIKIDATA_PAGE + 1)),
     europeanaCursor: null,
     europeanaQ: euQ,
   };
@@ -75,7 +84,7 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const userId = getUserId(req);
+  const userId = await getUserId(req);
   if (!userId) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
@@ -127,20 +136,29 @@ export default async function handler(req: Request, _context: Context): Promise<
     const items = interleave(met.items, euItems, wd.items);
 
     const nextState: CursorState = {
-      metPage: met.nextPage,
-      wdPage: wd.nextPage,
-      europeanaCursor: euNext,
+      metPage: clampArtCombinedMetPage(met.nextPage),
+      wdPage: clampWikidataPage(wd.nextPage),
+      europeanaCursor: clampEuropeanaCursorParam(euNext),
       europeanaQ: state.europeanaQ,
       europeanaSkip: euSkip,
     };
 
-    const nextCursor = items.length > 0 ? encodeArtCursorJson(nextState) : null;
+    /** Unclamped next indices: beyond cap they would only clamp to the same page → repeated Met/WD cards. */
+    const metAtCap = met.nextPage > MAX_ART_COMBINED_MET_PAGE;
+    const wdAtCap = wd.nextPage > MAX_WIKIDATA_PAGE;
+    const metAndWdExhausted = metAtCap && wdAtCap;
+    // Stops infinite scroll with duplicate interleaved Met/Wikidata. Remaining Europeana-only pages are not fetched in combined mode.
+    const nextCursor =
+      items.length > 0 && !metAndWdExhausted ? encodeArtCursorJson(nextState) : null;
 
     log(FN, "info", "ok", {
       count: items.length,
       metNext: met.nextPage,
       wdNext: wd.nextPage,
       euSkip,
+      metAtCap,
+      wdAtCap,
+      hasNextCursor: Boolean(nextCursor),
     });
 
     return jsonResponse({ items, nextCursor });

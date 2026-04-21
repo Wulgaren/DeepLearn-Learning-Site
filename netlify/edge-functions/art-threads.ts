@@ -12,7 +12,7 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const userId = getUserId(req);
+  const userId = await getUserId(req);
   if (!userId) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }

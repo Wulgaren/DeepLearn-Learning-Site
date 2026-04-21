@@ -42,7 +42,7 @@ export default async function handler(req: Request, _context: Context): Promise<
   }
 
   // Allow viewing by link without auth; ownership check only when authenticated
-  const userId = getUserId(req);
+  const userId = await getUserId(req);
   if (userId) {
     const { data: topic } = await supabase.from("topics").select("id, user_id").eq("id", thread.topic_id).single();
     if (!topic || topic.user_id !== userId) {
