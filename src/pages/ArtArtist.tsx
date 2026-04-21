@@ -9,7 +9,7 @@ import { useArtRoute } from '../contexts/ArtRouteContext';
 import { artistKey, threadNewHrefForArtwork, workKey } from '../lib/artRouteUtils';
 import type { ArtSource, Artwork } from '../types/art';
 import ArtworkDetailModal from '../components/ArtworkDetailModal';
-import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { truncateForTabTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 function isArtSource(s: string): s is ArtSource {
   return s === 'met' || s === 'europeana' || s === 'wikidata';
@@ -57,7 +57,7 @@ export default function ArtArtist() {
   const firstMeta = artistQuery.data?.pages[0];
   const apiMessage = firstMeta?.error;
   const artistLabel = firstMeta?.artistLabel ?? labelHint ?? externalId;
-  useDocumentTitle(artistLabel);
+  useDocumentTitle(truncateForTabTitle(artistLabel));
   const wikiUrl = firstMeta?.wikiUrl ?? null;
   const metSearchUrl = firstMeta?.metSearchUrl ?? null;
 

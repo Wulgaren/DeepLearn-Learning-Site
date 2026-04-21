@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 const APP = 'DeepLearn';
 const SUFFIX = ` – ${APP}`;
@@ -12,8 +12,11 @@ export function truncateForTabTitle(text: string, maxLen = 70): string {
 
 /** Sets `document.title` for current route; restores default app name when title empty. */
 export function useDocumentTitle(pageTitle: string) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const base = pageTitle.trim();
     document.title = base ? `${base}${SUFFIX}` : APP;
+    return () => {
+      document.title = APP;
+    };
   }, [pageTitle]);
 }

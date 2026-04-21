@@ -51,11 +51,13 @@ export default function ArtworkDetailModal({ selected, onClose }: Props) {
         </div>
         <div className="p-4 space-y-3">
           {(selected.imageUrl || selected.thumbUrl) && (
-            <img
-              src={selected.imageUrl ?? selected.thumbUrl ?? ''}
-              alt=""
-              className="w-full rounded-xl border border-zinc-800"
-            />
+            <div className="w-full min-h-0 flex justify-center items-center rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
+              <img
+                src={selected.imageUrl ?? selected.thumbUrl ?? ''}
+                alt=""
+                className="max-w-full max-h-[min(52vh,560px)] w-auto h-auto object-contain object-center"
+              />
+            </div>
           )}
           {selected.description && <p className="m-0 text-sm text-zinc-300">{selected.description}</p>}
           <p className="m-0 text-xs text-zinc-500">{selected.rights}</p>
