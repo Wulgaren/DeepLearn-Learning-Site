@@ -8,6 +8,7 @@ import Home from './pages/Home';
 import Feed from './pages/Feed';
 import Thread from './pages/Thread';
 import NewThread from './pages/NewThread';
+import Art from './pages/Art';
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
           >
             <Route index element={<Home />} />
             <Route path="topics" element={<Feed />} />
+            <Route path="art" element={<Art />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -5,6 +5,13 @@ import type {
   AskThreadResponse,
   ThreadSummary,
 } from '../types';
+import type {
+  ArtAskResponse,
+  ArtEuropeanaPageResponse,
+  ArtMetPageResponse,
+  Artwork,
+  ArtWikidataPageResponse,
+} from '../types/art';
 
 const API_BASE = ''; // all API routes are edge at /api/*
 const AI_RETRY_DELAY_MS = 1000;
@@ -121,4 +128,33 @@ export async function createThreadFromTweet(tweet: string): Promise<{ threadId: 
 
 export async function getHomeThreads(): Promise<{ threads: ThreadSummary[] }> {
   return apiFetch<{ threads: ThreadSummary[] }>(`${API_BASE}/api/home-threads`);
+}
+
+export async function getArtMetPage(page: number): Promise<ArtMetPageResponse> {
+  return apiFetch<ArtMetPageResponse>(`${API_BASE}/api/art-met?page=${encodeURIComponent(String(page))}`);
+}
+
+export async function getArtEuropeanaPage(cursor: string | null, q: string): Promise<ArtEuropeanaPageResponse> {
+  const params = new URLSearchParams();
+  if (cursor) params.set('cursor', cursor);
+  if (q.trim()) params.set('q', q.trim());
+  const qs = params.toString();
+  return apiFetch<ArtEuropeanaPageResponse>(
+    `${API_BASE}/api/art-europeana${qs ? `?${qs}` : ''}`
+  );
+}
+
+export async function getArtWikidataPage(page: number): Promise<ArtWikidataPageResponse> {
+  return apiFetch<ArtWikidataPageResponse>(
+    `${API_BASE}/api/art-wikidata?page=${encodeURIComponent(String(page))}`
+  );
+}
+
+export async function askAboutArtwork(artwork: Artwork, question: string): Promise<ArtAskResponse> {
+  return withOneRetry(() =>
+    apiFetch<ArtAskResponse>(`${API_BASE}/api/art-ask`, {
+      method: 'POST',
+      body: JSON.stringify({ artwork, question }),
+    })
+  );
 }

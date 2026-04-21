@@ -112,3 +112,62 @@ create policy "Users can insert follow_ups for own threads"
       where th.id = thread_id and t.user_id = auth.uid()
     )
   );
+
+-- Saved artworks (Met / Europeana / Wikidata)
+create table if not exists public.saved_artworks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  source text not null check (source in ('met', 'europeana', 'wikidata')),
+  external_id text not null,
+  snapshot jsonb,
+  created_at timestamptz not null default now(),
+  unique (user_id, source, external_id)
+);
+
+create index if not exists saved_artworks_user_id_idx on public.saved_artworks(user_id);
+create index if not exists saved_artworks_created_at_idx on public.saved_artworks(created_at desc);
+
+-- Saved artists (normalized external refs per source)
+create table if not exists public.saved_artists (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  source text not null check (source in ('met', 'europeana', 'wikidata')),
+  external_id text not null,
+  label text,
+  snapshot jsonb,
+  created_at timestamptz not null default now(),
+  unique (user_id, source, external_id)
+);
+
+create index if not exists saved_artists_user_id_idx on public.saved_artists(user_id);
+
+alter table public.saved_artworks enable row level security;
+alter table public.saved_artists enable row level security;
+
+create policy "Users can view own saved_artworks"
+  on public.saved_artworks for select
+  using (auth.uid() = user_id);
+create policy "Users can insert own saved_artworks"
+  on public.saved_artworks for insert
+  with check (auth.uid() = user_id);
+create policy "Users can delete own saved_artworks"
+  on public.saved_artworks for delete
+  using (auth.uid() = user_id);
+create policy "Users can update own saved_artworks"
+  on public.saved_artworks for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can view own saved_artists"
+  on public.saved_artists for select
+  using (auth.uid() = user_id);
+create policy "Users can insert own saved_artists"
+  on public.saved_artists for insert
+  with check (auth.uid() = user_id);
+create policy "Users can delete own saved_artists"
+  on public.saved_artists for delete
+  using (auth.uid() = user_id);
+create policy "Users can update own saved_artists"
+  on public.saved_artists for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

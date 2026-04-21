@@ -10,12 +10,14 @@ function SidebarContent({
   user,
   homeActive,
   topicsActive,
+  artActive,
   onLogout,
 }: {
   isPublicThread: boolean;
   user: { email?: string | null } | null;
   homeActive: boolean;
   topicsActive: boolean;
+  artActive: boolean;
   onLogout: () => void;
 }) {
   return (
@@ -39,6 +41,12 @@ function SidebarContent({
               className={`px-3 py-2 rounded-full text-lg font-semibold hover:bg-zinc-900 ${topicsActive ? '' : navInactiveClass}`}
             >
               My topics
+            </Link>
+            <Link
+              to="/art"
+              className={`px-3 py-2 rounded-full text-lg font-semibold hover:bg-zinc-900 ${artActive ? '' : navInactiveClass}`}
+            >
+              Art
             </Link>
           </nav>
 
@@ -86,11 +94,13 @@ export default function Layout() {
   const [searchTopic, setSearchTopic] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isTopics = location.pathname.startsWith('/topics');
+  const isArt = location.pathname.startsWith('/art');
   const isThread = location.pathname.startsWith('/thread/');
   const isPublicThread = isThread && !user;
-  const headerTitle = isThread ? 'Post' : isTopics ? 'My topics' : 'Home';
-  const homeActive = !isTopics && !isThread;
+  const headerTitle = isThread ? 'Post' : isTopics ? 'My topics' : isArt ? 'Art' : 'Home';
+  const homeActive = !isTopics && !isThread && !isArt;
   const topicsActive = isTopics;
+  const artActive = isArt;
 
   useEffect(() => {
     queueMicrotask(() => setMobileMenuOpen(false));
@@ -121,6 +131,7 @@ export default function Layout() {
                 user={user}
                 homeActive={homeActive}
                 topicsActive={topicsActive}
+                artActive={artActive}
                 onLogout={handleLogout}
               />
             </div>
@@ -144,6 +155,7 @@ export default function Layout() {
                     user={user}
                     homeActive={homeActive}
                     topicsActive={topicsActive}
+                    artActive={artActive}
                     onLogout={handleLogout}
                   />
                 </div>

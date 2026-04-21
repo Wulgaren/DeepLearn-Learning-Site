@@ -14,8 +14,9 @@ Turn any topic into a Twitter-style AI feed: generate threads with Groq, open th
      - `SUPABASE_URL` – same as `VITE_SUPABASE_URL`  
      - `SUPABASE_SERVICE_ROLE_KEY` – Supabase service role key (Dashboard → Settings → API)  
      - `GROQ_API_KEY` – [Groq](https://console.groq.com/) API key  
+     - `EUROPEANA_API_KEY` – [Europeana Search API](https://pro.europeana.eu/page/apis) key (required for the **Art** tab’s Europeana source; Met and Wikidata do not need it)
 
-2. **Supabase** – In the [Supabase SQL Editor](https://supabase.com/dashboard), run the contents of `supabase/schema.sql` to create tables and RLS.
+2. **Supabase** – In the [Supabase SQL Editor](https://supabase.com/dashboard), run the contents of `supabase/schema.sql` to create tables and RLS (including `saved_artworks` / `saved_artists` for Art saves).
 
 3. **Install and run with Netlify (recommended for debugging):**
 
@@ -24,7 +25,7 @@ Turn any topic into a Twitter-style AI feed: generate threads with Groq, open th
    bun run dev:netlify
    ```
 
-   This starts the Vite app and Netlify Functions together (e.g. at `http://localhost:8888`). The app will call `/.netlify/functions/*` so auth and APIs work locally.
+   This starts the Vite app and Netlify Edge Functions together (e.g. at `http://localhost:8888`). The app calls `/api/*` routes (edge handlers) so auth and APIs work locally.
 
 4. **Frontend only (no functions):**
 
@@ -38,14 +39,15 @@ Turn any topic into a Twitter-style AI feed: generate threads with Groq, open th
 
 - Connect the repo to Netlify; build command: `bun run build`, publish directory: `dist`.
 - Add the same env vars in Netlify (Site → Settings → Environment):  
-  `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GROQ_API_KEY`.
+  `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GROQ_API_KEY`, `EUROPEANA_API_KEY`.
 
 ## What’s included
 
 - **Auth:** Sign up / log in with email and password (Supabase Auth). Same account on any device.
 - **Feed:** Enter a topic → Groq generates several threads (main post + replies). List of “My topics” and thread cards per topic.
 - **Thread:** Open a thread to see the main post and replies; ask follow-up questions and get tweet-style answers (with thread + Q&A history sent to Groq).
-- **Stack:** Vite + React + TypeScript, Tailwind CSS, Netlify Functions, Supabase (DB + Auth), Groq.
+- **Art:** Browse works from The Met Collection API, Europeana, and Wikidata (via edge proxies); save pieces and artists to Supabase; ask Groq for context about a work (metadata-grounded). Rights vary by source—see on-screen attribution.
+- **Stack:** Vite + React + TypeScript, Tailwind CSS, Netlify Edge Functions, Supabase (DB + Auth), Groq.
 
 ## License
 
