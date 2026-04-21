@@ -112,6 +112,16 @@ create policy "Users can delete threads for own topics"
     exists (select 1 from public.topics t where t.id = topic_id and t.user_id = auth.uid())
   );
 
+drop policy if exists "Users can update threads for own topics" on public.threads;
+create policy "Users can update threads for own topics"
+  on public.threads for update
+  using (
+    exists (select 1 from public.topics t where t.id = topic_id and t.user_id = auth.uid())
+  )
+  with check (
+    exists (select 1 from public.topics t where t.id = topic_id and t.user_id = auth.uid())
+  );
+
 -- Follow-ups: select/insert for threads owned by user
 create policy "Users can view follow_ups of own threads"
   on public.follow_ups for select

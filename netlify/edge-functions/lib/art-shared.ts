@@ -1,3 +1,5 @@
+import { clampArtSearchQuery } from "./art-limits.ts";
+
 /** Normalized artwork JSON returned by art-* edge handlers (matches client `Artwork`). */
 export interface NormalizedArtwork {
   source: "met" | "europeana" | "wikidata";
@@ -161,7 +163,7 @@ export async function fetchEuropeanaPage(
   if (!wskey) {
     throw new Error("EUROPEANA_API_KEY not configured");
   }
-  const q = query.trim() || "painting";
+  const q = clampArtSearchQuery(query) || "painting";
   let url = `https://api.europeana.eu/record/v2/search.json?wskey=${encodeURIComponent(wskey)}&query=${encodeURIComponent(
     q
   )}&media=true&rows=${rows}&profile=rich`;

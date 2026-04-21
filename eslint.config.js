@@ -8,6 +8,15 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   globalIgnores(['dist']),
   {
+    files: ['netlify/edge-functions/**/*.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        Deno: 'readonly',
+      },
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,

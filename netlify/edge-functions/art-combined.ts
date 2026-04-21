@@ -7,7 +7,9 @@ import {
   fetchWikidataPage,
   hashSeed,
 } from "./lib/art-shared.ts";
-import { corsHeaders, jsonResponse, log } from "./lib/shared.ts";
+import { decodeArtCursorJson, encodeArtCursorJson } from "./lib/art-cursor.ts";
+import { clampArtSearchQuery, MAX_ART_SEED_LEN } from "./lib/art-limits.ts";
+import { corsHeaders, getUserId, jsonResponse, log } from "./lib/shared.ts";
 
 const FN = "art-combined";
 
@@ -23,42 +25,28 @@ type CursorState = {
   europeanaSkip?: boolean;
 };
 
-function encodeCursor(c: CursorState): string {
-  const bytes = new TextEncoder().encode(JSON.stringify(c));
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
 function decodeCursor(raw: string): CursorState | null {
-  try {
-    const pad = raw.length % 4 === 0 ? "" : "=".repeat(4 - (raw.length % 4));
-    const b64 = raw.replace(/-/g, "+").replace(/_/g, "/") + pad;
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const json = new TextDecoder().decode(bytes);
-    const o = JSON.parse(json) as Record<string, unknown>;
-    if (typeof o.metPage !== "number" || typeof o.wdPage !== "number") return null;
-    const europeanaQ = typeof o.europeanaQ === "string" ? o.europeanaQ : "painting";
-    const europeanaCursor =
-      o.europeanaCursor === null || typeof o.europeanaCursor === "string" ? o.europeanaCursor : null;
-    return {
-      metPage: o.metPage,
-      wdPage: o.wdPage,
-      europeanaCursor,
-      europeanaQ,
-      europeanaSkip: o.europeanaSkip === true,
-    };
-  } catch {
-    return null;
-  }
+  const o = decodeArtCursorJson(raw);
+  if (!o || typeof o !== "object" || o === null) return null;
+  const rec = o as Record<string, unknown>;
+  if (typeof rec.metPage !== "number" || typeof rec.wdPage !== "number") return null;
+  const europeanaQ =
+    typeof rec.europeanaQ === "string" ? clampArtSearchQuery(rec.europeanaQ) || "painting" : "painting";
+  const europeanaCursor =
+    rec.europeanaCursor === null || typeof rec.europeanaCursor === "string" ? rec.europeanaCursor : null;
+  return {
+    metPage: rec.metPage,
+    wdPage: rec.wdPage,
+    europeanaCursor,
+    europeanaQ,
+    europeanaSkip: rec.europeanaSkip === true,
+  };
 }
 
 function initialCursor(seed: string, qParam: string | null): CursorState {
   const euQ =
     qParam && qParam.trim().length > 0
-      ? qParam.trim()
+      ? clampArtSearchQuery(qParam) || "painting"
       : EUROPEANA_DEFAULT_TERMS[hashSeed(seed + ":e") % EUROPEANA_DEFAULT_TERMS.length]!;
   return {
     metPage: hashSeed(seed + ":m") % 900,
@@ -87,8 +75,13 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
+  const userId = getUserId(req);
+  if (!userId) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+
   const url = new URL(req.url);
-  const seed = (url.searchParams.get("seed") ?? "default").slice(0, 128);
+  const seed = (url.searchParams.get("seed") ?? "default").slice(0, MAX_ART_SEED_LEN);
   const qParam = url.searchParams.get("q");
   const cursorRaw = url.searchParams.get("cursor");
 
@@ -99,8 +92,9 @@ export default async function handler(req: Request, _context: Context): Promise<
       return jsonResponse({ error: "Invalid cursor" }, 400);
     }
     state = decoded;
-    if (qParam && qParam.trim() && qParam.trim() !== state.europeanaQ) {
-      state.europeanaQ = qParam.trim();
+    const qClamped = qParam ? clampArtSearchQuery(qParam) : "";
+    if (qClamped && qClamped !== state.europeanaQ) {
+      state.europeanaQ = qClamped;
       state.europeanaCursor = null;
       state.europeanaSkip = false;
     }
@@ -140,7 +134,7 @@ export default async function handler(req: Request, _context: Context): Promise<
       europeanaSkip: euSkip,
     };
 
-    const nextCursor = items.length > 0 ? encodeCursor(nextState) : null;
+    const nextCursor = items.length > 0 ? encodeArtCursorJson(nextState) : null;
 
     log(FN, "info", "ok", {
       count: items.length,

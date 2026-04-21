@@ -5,7 +5,9 @@ import {
   mapEuropeanaItem,
   mapMetObject,
 } from "./lib/art-shared.ts";
-import { corsHeaders, jsonResponse, log } from "./lib/shared.ts";
+import { decodeArtCursorJson, encodeArtCursorJson } from "./lib/art-cursor.ts";
+import { clampArtExternalId, clampArtSearchQuery } from "./lib/art-limits.ts";
+import { corsHeaders, getUserId, jsonResponse, log } from "./lib/shared.ts";
 
 const FN = "art-artist";
 const MET_BASE = "https://collectionapi.metmuseum.org/public/collection/v1";
@@ -13,30 +15,15 @@ const BATCH = 12;
 
 type CursorState = { wdOffset?: number; metOffset?: number; euCursor?: string | null };
 
-function encodeCursor(c: CursorState): string {
-  const bytes = new TextEncoder().encode(JSON.stringify(c));
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
 function decodeCursor(raw: string): CursorState | null {
-  try {
-    const pad = raw.length % 4 === 0 ? "" : "=".repeat(4 - (raw.length % 4));
-    const b64 = raw.replace(/-/g, "+").replace(/_/g, "/") + pad;
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const json = new TextDecoder().decode(bytes);
-    const o = JSON.parse(json) as Record<string, unknown>;
-    return {
-      wdOffset: typeof o.wdOffset === "number" ? o.wdOffset : 0,
-      metOffset: typeof o.metOffset === "number" ? o.metOffset : 0,
-      euCursor: o.euCursor === null || typeof o.euCursor === "string" ? o.euCursor : null,
-    };
-  } catch {
-    return null;
-  }
+  const o = decodeArtCursorJson(raw);
+  if (!o || typeof o !== "object" || o === null) return null;
+  const rec = o as Record<string, unknown>;
+  return {
+    wdOffset: typeof rec.wdOffset === "number" ? rec.wdOffset : 0,
+    metOffset: typeof rec.metOffset === "number" ? rec.metOffset : 0,
+    euCursor: rec.euCursor === null || typeof rec.euCursor === "string" ? rec.euCursor : null,
+  };
 }
 
 async function wikidataEntityLabel(qid: string): Promise<string | null> {
@@ -206,7 +193,7 @@ async function fetchEuropeanaByCreator(
   if (!wskey) {
     throw new Error("EUROPEANA_API_KEY not configured");
   }
-  const safe = name.replace(/"/g, "").trim() || "painting";
+  const safe = clampArtSearchQuery(name.replace(/"/g, "")) || "painting";
   const queryStr = `who:"${safe}"`;
   let url = `https://api.europeana.eu/record/v2/search.json?wskey=${encodeURIComponent(
     wskey
@@ -243,10 +230,16 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
+  const userId = getUserId(req);
+  if (!userId) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+
   const url = new URL(req.url);
   const source = url.searchParams.get("source") as "met" | "europeana" | "wikidata" | null;
-  const externalId = url.searchParams.get("externalId")?.trim() ?? "";
-  const labelHint = url.searchParams.get("label")?.trim() ?? null;
+  const externalId = clampArtExternalId(url.searchParams.get("externalId") ?? "");
+  const labelHintRaw = url.searchParams.get("label")?.trim() ?? null;
+  const labelHint = labelHintRaw ? clampArtSearchQuery(labelHintRaw) || null : null;
   const cursorRaw = url.searchParams.get("cursor");
 
   if (!source || !["met", "europeana", "wikidata"].includes(source)) {
@@ -289,7 +282,7 @@ export default async function handler(req: Request, _context: Context): Promise<
         metOffset: 0,
         euCursor: null,
       };
-      const nextCursor = hasMore ? encodeCursor(nextState) : null;
+      const nextCursor = hasMore ? encodeArtCursorJson(nextState) : null;
       log(FN, "info", "wikidata ok", { n: wd.items.length, qid });
       return jsonResponse({
         items: wd.items,
@@ -301,10 +294,11 @@ export default async function handler(req: Request, _context: Context): Promise<
     }
 
     if (source === "met") {
-      const name =
+      const rawName =
         labelHint ||
         (externalId.startsWith("label:") ? externalId.slice("label:".length) : null) ||
         externalId;
+      const name = clampArtSearchQuery(rawName) || rawName.trim().slice(0, 200);
       const { items, nextOffset, totalIds } = await fetchMetByArtistName(name, state.metOffset ?? 0);
       const hasMore = nextOffset < totalIds && items.length > 0;
       const nextState: CursorState = {
@@ -312,7 +306,7 @@ export default async function handler(req: Request, _context: Context): Promise<
         metOffset: nextOffset,
         euCursor: null,
       };
-      const nextCursor = hasMore ? encodeCursor(nextState) : null;
+      const nextCursor = hasMore ? encodeArtCursorJson(nextState) : null;
       const metSearchUrl = `https://www.metmuseum.org/art/collection/search?q=${encodeURIComponent(
         name
       )}`;
@@ -327,16 +321,17 @@ export default async function handler(req: Request, _context: Context): Promise<
     }
 
     // europeana
-    const name =
+    const rawEuName =
       labelHint ||
       (externalId.startsWith("label:") ? externalId.slice("label:".length) : externalId);
+    const name = clampArtSearchQuery(rawEuName) || rawEuName.trim().slice(0, 200);
     const eu = await fetchEuropeanaByCreator(name, state.euCursor ?? null);
     const nextState: CursorState = {
       wdOffset: 0,
       metOffset: 0,
       euCursor: eu.nextCursor,
     };
-    const nextCursor = eu.nextCursor ? encodeCursor(nextState) : null;
+    const nextCursor = eu.nextCursor ? encodeArtCursorJson(nextState) : null;
     log(FN, "info", "europeana ok", { n: eu.items.length, name });
     return jsonResponse({
       items: eu.items,

@@ -1,6 +1,7 @@
 import type { Config, Context } from "@netlify/edge-functions";
-import { corsHeaders, jsonResponse, log } from "./lib/shared.ts";
 import { fetchEuropeanaPage } from "./lib/art-shared.ts";
+import { clampArtSearchQuery } from "./lib/art-limits.ts";
+import { corsHeaders, getUserId, jsonResponse, log } from "./lib/shared.ts";
 
 const FN = "art-europeana";
 
@@ -12,9 +13,14 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
+  const userId = getUserId(req);
+  if (!userId) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+
   const url = new URL(req.url);
   const cursor = url.searchParams.get("cursor");
-  const query = url.searchParams.get("q") ?? "painting";
+  const query = clampArtSearchQuery(url.searchParams.get("q") ?? "painting") || "painting";
 
   if (!Deno.env.get("EUROPEANA_API_KEY")) {
     return jsonResponse({ error: "Europeana is not configured" }, 503);

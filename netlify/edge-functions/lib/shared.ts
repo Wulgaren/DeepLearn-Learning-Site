@@ -6,6 +6,8 @@ export const corsHeaders: Record<string, string> = {
 
 const LOG_PREFIX = "[edge]";
 const MAX_PAYLOAD_CHARS = 800;
+/** AI completion text in logs — keep short to reduce accidental PII in Netlify logs. */
+const MAX_AI_LOG_RAW_CHARS = 200;
 
 type LogLevel = "info" | "warn" | "error";
 
@@ -82,6 +84,7 @@ function parseJwtPayload(token: string): { sub?: string } | null {
   }
 }
 
+/** User id from JWT `sub` (decoded payload; edge does not verify signature). */
 export function getUserId(req: Request): string | null {
   const auth = req.headers.get("authorization");
   let token: string | null = null;
@@ -121,9 +124,9 @@ export function logAi(
     return;
   }
   const truncated = rawResponse
-    ? rawResponse.length <= MAX_PAYLOAD_CHARS
+    ? rawResponse.length <= MAX_AI_LOG_RAW_CHARS
       ? rawResponse
-      : rawResponse.slice(0, MAX_PAYLOAD_CHARS) + `... (${rawResponse.length} chars)`
+      : rawResponse.slice(0, MAX_AI_LOG_RAW_CHARS) + `…(${rawResponse.length}c)`
     : "(empty)";
   log(fn, "info", "AI response", { model, ...(parts.length > 1 ? { usage: parts.slice(1).join(", ") } : {}), raw: truncated });
 }

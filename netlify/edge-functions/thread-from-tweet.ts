@@ -8,6 +8,7 @@ import {
   sanitizeForPrompt,
   sanitizeForDb,
 } from "./lib/shared.ts";
+import { MAX_ART_EXTERNAL_ID_LEN } from "./lib/art-limits.ts";
 import { generateAndPersistReplies } from "./lib/thread-ai-replies.ts";
 
 const FN = "thread-from-tweet";
@@ -92,7 +93,7 @@ export default async function handler(req: Request, _context: Context): Promise<
 
   const deferReplies = Boolean(body.deferReplies);
   const artSource = normalizeArtSource(body.artSource);
-  const artEx = typeof body.artExternalId === "string" ? body.artExternalId.trim() : "";
+  const artEx = sanitizeForDb(typeof body.artExternalId === "string" ? body.artExternalId : "", MAX_ART_EXTERNAL_ID_LEN);
   const isArt = Boolean(artSource && artEx);
 
   if (deferReplies && (!isArt || !artSource)) {
