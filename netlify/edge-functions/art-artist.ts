@@ -19,7 +19,7 @@ import { corsHeaders, getUserId, jsonResponse, log } from "./lib/shared.ts";
 
 const FN = "art-artist";
 const MET_BASE = "https://collectionapi.metmuseum.org/public/collection/v1";
-const BATCH = 12;
+const BATCH = 16;
 
 type CursorState = { wdOffset?: number; metOffset?: number; euCursor?: string | null };
 

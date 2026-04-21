@@ -6,6 +6,7 @@ import { catalogPageUrl } from '../lib/artTweet';
 import { openModalUnlessModifiedClick } from '../lib/artModal';
 import { getErrorMessage } from '../lib/errors';
 import { useArtRoute } from '../contexts/ArtRouteContext';
+import { prefetchArtFullResForPopup } from '../lib/artPrefetchFullRes';
 import { artistKey, threadNewHrefForArtwork, workKey } from '../lib/artRouteUtils';
 import type { ArtSource, Artwork } from '../types/art';
 import ArtworkDetailModal from '../components/ArtworkDetailModal';
@@ -55,7 +56,13 @@ export default function ArtArtist() {
     enabled: sourceValid && Boolean(externalId),
   });
 
-  const items = artistQuery.data?.pages.flatMap((p) => p.items) ?? [];
+  const items = useMemo(
+    () => artistQuery.data?.pages.flatMap((p) => p.items) ?? [],
+    [artistQuery.data]
+  );
+  useEffect(() => {
+    prefetchArtFullResForPopup(items, { maxItems: 72 });
+  }, [items]);
   const firstMeta = artistQuery.data?.pages[0];
   const apiMessage = firstMeta?.error;
   const artistLabel = firstMeta?.artistLabel ?? labelHint ?? externalId;

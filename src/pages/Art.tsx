@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useQuery } from '@tanstack/react-query';
 import { getArtCombinedPage } from '../lib/api';
@@ -6,6 +6,7 @@ import { catalogPageUrl } from '../lib/artTweet';
 import { openModalUnlessModifiedClick } from '../lib/artModal';
 import { getErrorMessage } from '../lib/errors';
 import { useArtRoute } from '../contexts/ArtRouteContext';
+import { prefetchArtFullResForPopup } from '../lib/artPrefetchFullRes';
 import { artistKey, threadNewHrefForArtwork, workKey } from '../lib/artRouteUtils';
 import type { Artwork } from '../types/art';
 import ArtRightRail from '../components/ArtRightRail';
@@ -38,7 +39,12 @@ export default function Art() {
     refetchOnWindowFocus: false,
   });
 
-  const items = feedQuery.data?.items ?? [];
+  const feedItems = feedQuery.data?.items;
+  const items = feedItems ?? [];
+  useEffect(() => {
+    if (!feedItems?.length) return;
+    prefetchArtFullResForPopup(feedItems);
+  }, [feedItems]);
   const isLoading = feedQuery.isLoading;
   const isFetching = feedQuery.isFetching;
   const error = feedQuery.error;

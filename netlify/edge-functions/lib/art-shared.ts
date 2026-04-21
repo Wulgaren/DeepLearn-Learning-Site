@@ -70,7 +70,7 @@ export function hashSeed(str: string): number {
 
 export async function fetchMetPage(
   page: number,
-  batchSize = 12
+  batchSize = 16
 ): Promise<{ items: NormalizedArtwork[]; nextPage: number }> {
   const deptRes = await fetch(`${MET_BASE}/departments`);
   if (!deptRes.ok) throw new Error(`Met departments ${deptRes.status}`);
@@ -157,7 +157,7 @@ export function mapMetObject(o: Record<string, unknown>): NormalizedArtwork {
 export async function fetchEuropeanaPage(
   cursor: string | null,
   query: string,
-  rows = 12
+  rows = 16
 ): Promise<{ items: NormalizedArtwork[]; nextCursor: string | null }> {
   const wskey = Deno.env.get("EUROPEANA_API_KEY");
   if (!wskey) {
@@ -245,11 +245,11 @@ export function commonsPathToUrl(fileName: string): string {
 
 export async function fetchWikidataPage(
   page: number,
-  limit = 12
+  limit = 16
 ): Promise<{ items: NormalizedArtwork[]; nextPage: number }> {
   const offset = page * limit;
   // WDQS perf: `SERVICE wikibase:label` and un-scoped joins over P18×P31 explode work *before* LIMIT.
-  // Pattern: inner subquery returns only LIMIT rows (?item, ?image); outer adds labels on ≤12 items.
+  // Pattern: inner subquery returns only LIMIT rows (?item, ?image); outer adds labels on small batches.
   // Use wikibase:label with language fallback — plain rdfs:label + LANG=en misses items with no English label
   // (they became "Work Q…" before). Still direct `wdt:P31` only (no P279*). Extend VALUES ?class if needed.
   const query = `

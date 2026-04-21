@@ -22,8 +22,8 @@ import { corsHeaders, getUserId, jsonResponse, log } from "./lib/shared.ts";
 const FN = "art-combined";
 
 /** Items fetched per source per combined page (interleaved → ~3× this many cards, capped). */
-const SLICE = 4;
-const MAX_OUT = 36;
+const SLICE = 8;
+const MAX_OUT = 48;
 
 type CursorState = {
   metPage: number;

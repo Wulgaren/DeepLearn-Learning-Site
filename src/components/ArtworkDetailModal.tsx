@@ -7,6 +7,7 @@ import {
   workKey,
 } from '../lib/artRouteUtils';
 import { useArtRoute } from '../contexts/ArtRouteContext';
+import { prefetchArtImageUrls, urlsNeedingFullResPrefetch } from '../lib/artPrefetchFullRes';
 import type { Artwork } from '../types/art';
 
 type Props = {
@@ -70,6 +71,16 @@ export default function ArtworkDetailModal({
     if (!selected) return;
     dialogRef.current?.focus({ preventScroll: true });
   }, [selected]);
+
+  useEffect(() => {
+    if (!selected || !galleryItems?.length) return;
+    const idx = galleryItems.findIndex((a) => workKey(a) === workKey(selected));
+    if (idx < 0) return;
+    const neighbors: Artwork[] = [];
+    if (idx > 0) neighbors.push(galleryItems[idx - 1]!);
+    if (idx < galleryItems.length - 1) neighbors.push(galleryItems[idx + 1]!);
+    prefetchArtImageUrls(urlsNeedingFullResPrefetch(neighbors));
+  }, [selected, galleryItems]);
 
   useEffect(() => {
     if (!selected) return;
