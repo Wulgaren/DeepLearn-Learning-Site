@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { formatThreadDate } from '../lib/format';
+import { normalizeHttpsImageUrl } from '../lib/artRouteUtils';
 import { useArtRouteOptional } from '../contexts/ArtRouteContext';
 
 function artistHref(source: string, externalId: string, label: string | null): string {
@@ -23,29 +24,23 @@ export default function ArtRightRail() {
   return (
     <div className="space-y-4">
       <form onSubmit={applySearch} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-        <label className="block text-xs text-zinc-500 mb-1">Europeana search</label>
-        <div className="flex gap-2 flex-wrap">
-          <input
-            type="search"
-            value={europeanaQ}
-            onChange={(e) => setEuropeanaQ(e.target.value)}
-            placeholder="e.g. painting, photo"
-            className="flex-1 min-w-[120px] rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
-          />
+        <input
+          type="search"
+          value={europeanaQ}
+          onChange={(e) => setEuropeanaQ(e.target.value)}
+          placeholder="e.g. painting, photo — Enter to apply"
+          aria-label="Europeana search query"
+          className="w-full px-4 py-2 rounded-full border border-zinc-800 bg-zinc-950/60 text-inherit text-sm placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-zinc-600"
+        />
+        <div className="mt-3 flex justify-end">
           <button
-            type="submit"
-            className="px-4 py-2 rounded-full bg-zinc-100 text-black text-sm font-semibold hover:bg-white"
+            type="button"
+            onClick={onShuffle}
+            className="px-4 py-2 rounded-full font-semibold bg-zinc-100 text-black hover:bg-white text-sm"
           >
-            Search
+            Shuffle
           </button>
         </div>
-        <button
-          type="button"
-          className="mt-3 w-full px-3 py-2 rounded-full border border-zinc-700 text-sm text-zinc-300 hover:bg-zinc-900"
-          onClick={onShuffle}
-        >
-          Shuffle feed
-        </button>
       </form>
 
       <section className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
@@ -54,20 +49,36 @@ export default function ArtRightRail() {
           <p className="m-0 mt-2 text-sm text-zinc-500">Star a work to save a thread (AI when you open it).</p>
         ) : (
           <ul className="mt-2 space-y-2 list-none p-0 m-0 max-h-[min(50vh,320px)] overflow-y-auto">
-            {artThreads.map((t) => (
-              <li key={t.id}>
-                <Link
-                  to={`/thread/${t.id}`}
-                  className="block rounded-lg px-2 py-2 hover:bg-zinc-900/80 no-underline text-inherit"
-                >
-                  <p className="m-0 text-sm text-zinc-200 line-clamp-2">{t.main_post}</p>
-                  <p className="m-0 mt-1 text-[10px] text-zinc-500">
-                    {t.expand_pending ? 'Pending · ' : ''}
-                    {formatThreadDate(t.created_at)}
-                  </p>
-                </Link>
-              </li>
-            ))}
+            {artThreads.map((t) => {
+              const thumb = normalizeHttpsImageUrl(t.main_image_url ?? null);
+              return (
+                <li key={t.id}>
+                  <Link
+                    to={`/thread/${t.id}`}
+                    state={{ from: '/art' }}
+                    className="flex gap-2 rounded-lg px-2 py-2 hover:bg-zinc-900/80 no-underline text-inherit items-start"
+                  >
+                    {thumb ? (
+                      <img
+                        src={thumb}
+                        alt=""
+                        className="w-12 h-12 shrink-0 rounded-md object-cover bg-zinc-900"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 shrink-0 rounded-md bg-zinc-900 border border-zinc-800" aria-hidden />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 text-sm text-zinc-200 line-clamp-2">{t.main_post}</p>
+                      <p className="m-0 mt-1 text-[10px] text-zinc-500">
+                        {t.expand_pending ? 'Pending · ' : ''}
+                        {formatThreadDate(t.created_at)}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

@@ -305,7 +305,7 @@ SELECT ?item ?itemLabel ?image ?creator ?creatorLabel WHERE {
     const imageUri = b.image?.value ?? "";
     let imgUrl: string | null = null;
     if (imageUri.startsWith("http://") || imageUri.startsWith("https://")) {
-      imgUrl = imageUri;
+      imgUrl = imageUri.startsWith("http://") ? `https://${imageUri.slice(7)}` : imageUri;
     } else if (imageUri) {
       const fileName = imageUri.includes("Special:FilePath/")
         ? decodeURIComponent(imageUri.split("Special:FilePath/")[1] ?? "")

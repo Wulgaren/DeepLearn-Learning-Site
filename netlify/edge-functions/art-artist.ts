@@ -115,7 +115,7 @@ SELECT ?item ?itemLabel ?image ?creator ?creatorLabel WHERE {
     const imageUri = b.image?.value ?? "";
     let imgUrl: string | null = null;
     if (imageUri.startsWith("http://") || imageUri.startsWith("https://")) {
-      imgUrl = imageUri;
+      imgUrl = imageUri.startsWith("http://") ? `https://${imageUri.slice(7)}` : imageUri;
     } else if (imageUri) {
       const fileName = imageUri.includes("Special:FilePath/")
         ? decodeURIComponent(imageUri.split("Special:FilePath/")[1] ?? "")
@@ -151,19 +151,35 @@ SELECT ?item ?itemLabel ?image ?creator ?creatorLabel WHERE {
   return { items, nextOffset: offset + items.length };
 }
 
-async function fetchMetByArtistName(
+async function metSearchObjectIds(
   name: string,
-  offset: number
-): Promise<{ items: NormalizedArtwork[]; nextOffset: number; totalIds: number }> {
-  const searchUrl = `${MET_BASE}/search?hasImages=true&q=${encodeURIComponent(
-    name
-  )}&artistOrCulture=true`;
+  mode: "general" | "artistField" | "anyImage"
+): Promise<number[]> {
+  const params = new URLSearchParams();
+  params.set("q", name);
+  if (mode !== "anyImage") params.set("hasImages", "true");
+  if (mode === "artistField") params.set("artistOrCulture", "true");
+  const searchUrl = `${MET_BASE}/search?${params.toString()}`;
   const searchRes = await fetch(searchUrl);
   if (!searchRes.ok) {
     throw new Error(`Met search ${searchRes.status}`);
   }
-  const searchData = (await searchRes.json()) as { objectIDs?: number[]; total?: number };
-  const ids = searchData.objectIDs ?? [];
+  const searchData = (await searchRes.json()) as { objectIDs?: number[] };
+  return searchData.objectIDs ?? [];
+}
+
+/**
+ * Website collection search is broad full-text; `artistOrCulture=true` only matches artist/culture
+ * fields and often returns 0 for names like "Utagawa Kunisada" while /search?q=… does not.
+ * Prefer general q + hasImages first; fall back to artistOrCulture if needed.
+ */
+async function fetchMetByArtistName(
+  name: string,
+  offset: number
+): Promise<{ items: NormalizedArtwork[]; nextOffset: number; totalIds: number }> {
+  let ids = await metSearchObjectIds(name, "general");
+  if (ids.length === 0) ids = await metSearchObjectIds(name, "artistField");
+  if (ids.length === 0) ids = await metSearchObjectIds(name, "anyImage");
   const totalIds = ids.length;
   const slice = ids.slice(offset, offset + BATCH);
   const collected: NormalizedArtwork[] = [];
@@ -173,7 +189,8 @@ async function fetchMetByArtistName(
       if (!objRes.ok) continue;
       const o = (await objRes.json()) as Record<string, unknown>;
       const mapped = mapMetObject(o);
-      if (mapped.imageUrl || mapped.thumbUrl) collected.push(mapped);
+      /** Include works without open-access images so the grid matches Met search hit counts. */
+      collected.push(mapped);
     } catch {
       /* skip */
     }

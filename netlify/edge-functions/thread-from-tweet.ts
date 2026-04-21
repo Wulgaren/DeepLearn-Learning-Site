@@ -79,8 +79,13 @@ export default async function handler(req: Request, _context: Context): Promise<
     return jsonResponse({ error: "Missing or empty tweet" }, 400);
   }
   const rawImg = typeof body.mainImageUrl === "string" ? body.mainImageUrl.trim() : "";
+  /** Wikidata P18 often returns http:// Commons URLs; store as https for thread display. */
+  const rawImgHttps =
+    rawImg.length > 0 && /^http:\/\//i.test(rawImg) ? `https://${rawImg.slice(7)}` : rawImg;
   const mainImageUrl =
-    rawImg.length > 0 && /^https:\/\//i.test(rawImg) ? sanitizeForDb(rawImg, 2000) : null;
+    rawImgHttps.length > 0 && /^https:\/\//i.test(rawImgHttps)
+      ? sanitizeForDb(rawImgHttps, 2000)
+      : null;
   const rawCatalog = typeof body.catalogUrl === "string" ? body.catalogUrl.trim() : "";
   const catalogUrl =
     rawCatalog.length > 0 && /^https:\/\//i.test(rawCatalog) ? sanitizeForDb(rawCatalog, 2000) : null;

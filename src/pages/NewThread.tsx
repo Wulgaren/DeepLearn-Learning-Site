@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createThreadFromTweet } from '../lib/api';
 import type { ArtSource } from '../types/art';
 import { getErrorMessage } from '../lib/errors';
+import { normalizeHttpsImageUrl } from '../lib/artRouteUtils';
 
 type ThreadNewState = {
   tweet?: string;
@@ -28,10 +29,14 @@ export default function NewThread() {
 
   const createMutation = useMutation({
     mutationFn: createThreadFromTweet,
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['homeThreads'] });
       queryClient.invalidateQueries({ queryKey: ['artThreads'] });
-      navigate(`/thread/${data.threadId}`, { replace: true });
+      const fromArt = Boolean(variables.artSource && variables.artExternalId);
+      navigate(`/thread/${data.threadId}`, {
+        replace: true,
+        state: fromArt ? { from: '/art' } : undefined,
+      });
     },
     onError: (err) => {
       setError(getErrorMessage(err));
@@ -58,7 +63,7 @@ export default function NewThread() {
 
     if (st?.tweet?.trim()) {
       tweet = st.tweet.trim();
-      mainImageUrl = st.mainImageUrl ?? undefined;
+      mainImageUrl = normalizeHttpsImageUrl(st.mainImageUrl ?? null) ?? undefined;
       catalogUrl = st.catalogUrl ?? undefined;
       artSource = st.artSource;
       artExternalId = st.artExternalId?.trim() || undefined;
@@ -74,8 +79,7 @@ export default function NewThread() {
         queueMicrotask(() => setError('Invalid link'));
         return;
       }
-      mainImageUrl =
-        imgFromQuery && /^https:\/\//i.test(imgFromQuery) ? imgFromQuery : undefined;
+      mainImageUrl = normalizeHttpsImageUrl(imgFromQuery) ?? undefined;
       catalogUrl =
         catalogFromQuery && /^https:\/\//i.test(catalogFromQuery)
           ? catalogFromQuery

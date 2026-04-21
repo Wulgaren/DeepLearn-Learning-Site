@@ -30,12 +30,16 @@ export default function Art() {
         cursor: null,
         q: qApplied,
       }),
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
   });
 
   const items = feedQuery.data?.items ?? [];
   const isLoading = feedQuery.isLoading;
   const isFetching = feedQuery.isFetching;
   const error = feedQuery.error;
+  const showSkeleton = !error && items.length === 0 && (isLoading || isFetching);
 
   return (
     <div className="pb-10">
@@ -43,26 +47,39 @@ export default function Art() {
         <ArtRightRail />
       </div>
 
-      <section className="border-b border-zinc-800/80 pb-4">
-        {error && (
-          <div className="rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200 mb-4">
-            {getErrorMessage(error)}
-            {String(getErrorMessage(error)).includes('not configured') && (
-              <span> Add EUROPEANA_API_KEY to Netlify env (see README).</span>
-            )}
-          </div>
-        )}
+      {error && (
+        <div className="rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200 mb-4">
+          {getErrorMessage(error)}
+          {String(getErrorMessage(error)).includes('not configured') && (
+            <span> Add EUROPEANA_API_KEY to Netlify env (see README).</span>
+          )}
+        </div>
+      )}
 
-        {(isLoading || isFetching) && <p className="text-zinc-500 text-sm py-2">Loading…</p>}
+      {!error && !showSkeleton && items.length === 0 && (
+        <p className="text-zinc-500 text-sm mb-4">No items returned. Try Shuffle or another search.</p>
+      )}
 
-        {!isLoading && !isFetching && !error && items.length === 0 && (
-          <p className="text-zinc-500 text-sm">No items returned. Try Shuffle or another search.</p>
-        )}
-      </section>
-
-      <section className="pt-4">
+      {(showSkeleton || items.length > 0) && (
+      <section className="pt-4" aria-busy={showSkeleton}>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {items.map((a) => {
+          {showSkeleton &&
+            Array.from({ length: 6 }, (_, i) => (
+              <div
+                key={`sk-${i}`}
+                className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 overflow-hidden animate-pulse"
+                aria-hidden
+              >
+                <div className="aspect-square bg-zinc-800/70" />
+                <div className="p-3 space-y-2">
+                  <div className="h-4 bg-zinc-800/80 rounded w-[85%]" />
+                  <div className="h-3 bg-zinc-800/60 rounded w-[55%]" />
+                  <div className="h-3 bg-zinc-800/50 rounded w-full" />
+                </div>
+              </div>
+            ))}
+          {!showSkeleton &&
+            items.map((a) => {
             const thumb = a.thumbUrl ?? a.imageUrl;
             const wk = workKey(a);
             const ak = artistKey(a);
@@ -129,6 +146,7 @@ export default function Art() {
           })}
         </div>
       </section>
+      )}
 
       <ArtworkDetailModal selected={selected} onClose={() => setSelected(null)} />
     </div>

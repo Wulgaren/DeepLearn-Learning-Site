@@ -1,6 +1,16 @@
 import { artworkToMainTweet, catalogPageUrl } from './artTweet';
 import type { Artwork } from '../types/art';
 
+/**
+ * Wikidata P18 / Commons often returns http:// URLs; thread API and UI require https for main_image.
+ */
+export function normalizeHttpsImageUrl(url: string | null | undefined): string | null {
+  if (!url?.trim()) return null;
+  let u = url.trim();
+  if (/^http:\/\//i.test(u)) u = `https://${u.slice(7)}`;
+  return /^https:\/\//i.test(u) ? u : null;
+}
+
 export function workKey(a: Artwork): string {
   return `${a.source}:${a.id}`;
 }
@@ -19,9 +29,7 @@ export function metArtistUrl(a: Artwork): string | null {
 
 export function threadNewHrefForArtwork(a: Artwork): string {
   const tweet = artworkToMainTweet(a);
-  const mainImageUrl = a.imageUrl ?? a.thumbUrl ?? null;
-  const safeImage =
-    mainImageUrl && /^https:\/\//i.test(mainImageUrl) ? mainImageUrl : null;
+  const safeImage = normalizeHttpsImageUrl(a.imageUrl ?? a.thumbUrl ?? null);
   const catalogUrl = catalogPageUrl(a);
   const qs = new URLSearchParams();
   if (safeImage) qs.set('img', safeImage);

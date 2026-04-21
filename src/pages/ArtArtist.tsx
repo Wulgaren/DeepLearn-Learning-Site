@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { getArtArtistPage } from '../lib/api';
 import { catalogPageUrl } from '../lib/artTweet';
@@ -83,10 +83,7 @@ export default function ArtArtist() {
   if (!sourceValid || !externalId) {
     return (
       <div className="pb-10">
-        <p className="text-zinc-500 text-sm">Invalid artist link.</p>
-        <Link to="/art" className="text-sky-400 text-sm mt-2 inline-block">
-          Back to Art
-        </Link>
+        <p className="text-zinc-500 text-sm">Invalid artist link. Use the header back button to return to Art.</p>
       </div>
     );
   }
@@ -94,10 +91,7 @@ export default function ArtArtist() {
   return (
     <div className="pb-10">
       <div className="border-b border-zinc-800/80 pb-4 mb-4">
-        <Link to="/art" className="text-sm text-sky-400 hover:underline no-underline">
-          ← Art feed
-        </Link>
-        <h1 className="m-0 mt-3 text-xl font-semibold text-zinc-100">{artistLabel}</h1>
+        <h1 className="m-0 text-xl font-semibold text-zinc-100">{artistLabel}</h1>
         <div className="mt-2 flex flex-wrap gap-3 text-sm">
           {wikiUrl && (
             <a href={wikiUrl} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">

@@ -97,8 +97,11 @@ export default function Layout() {
   const isTopics = location.pathname.startsWith('/topics');
   const isArt = location.pathname.startsWith('/art');
   const isThread = location.pathname.startsWith('/thread/');
+  const isNewThreadRoute = location.pathname === '/thread/new';
+  const isThreadDetail = isThread && !isNewThreadRoute;
   const isPublicThread = isThread && !user;
   const isArtArtist = location.pathname.startsWith('/art/artist/');
+  const navState = location.state as { from?: string } | null;
   const headerTitle = isThread
     ? 'Post'
     : isTopics
@@ -183,8 +186,11 @@ export default function Layout() {
           <main className="min-h-screen lg:border-x border-zinc-800/80">
             <header className="sticky top-0 z-10 backdrop-blur bg-black/70 border-b border-zinc-800/80">
               <div className="px-4 py-3 flex items-center gap-3 min-w-0">
-                {isThread && (
-                  <Link to="/" className="text-zinc-300 no-underline hover:text-white shrink-0">
+                {(isThreadDetail || isArtArtist) && (
+                  <Link
+                    to={isArtArtist ? '/art' : navState?.from ?? '/'}
+                    className="text-zinc-300 no-underline hover:text-white shrink-0"
+                  >
                     ←
                   </Link>
                 )}

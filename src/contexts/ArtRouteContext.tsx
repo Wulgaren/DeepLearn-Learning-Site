@@ -13,7 +13,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createThreadFromTweet, getArtThreads } from '../lib/api';
 import { artworkToMainTweet, catalogPageUrl } from '../lib/artTweet';
-import { artistKey } from '../lib/artRouteUtils';
+import { artistKey, normalizeHttpsImageUrl } from '../lib/artRouteUtils';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { getErrorMessage } from '../lib/errors';
@@ -108,12 +108,7 @@ export function ArtRouteProvider({ children }: { children: ReactNode }) {
       if (save) {
         await createThreadFromTweet({
           tweet: artworkToMainTweet(a),
-          mainImageUrl:
-            a.imageUrl && /^https:\/\//i.test(a.imageUrl)
-              ? a.imageUrl
-              : a.thumbUrl && /^https:\/\//i.test(a.thumbUrl)
-                ? a.thumbUrl
-                : null,
+          mainImageUrl: normalizeHttpsImageUrl(a.imageUrl ?? a.thumbUrl ?? null),
           catalogUrl: catalogPageUrl(a),
           deferReplies: true,
           artSource: a.source,
