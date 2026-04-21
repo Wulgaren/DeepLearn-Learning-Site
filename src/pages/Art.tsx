@@ -25,6 +25,7 @@ export default function Art() {
   const [selected, setSelected] = useState<Artwork | null>(null);
 
   const feedQuery = useQuery({
+    // feedSeed must stay stable while ArtRouteProvider stays mounted (hoisted in App), or back nav misses React Query cache.
     queryKey: ['artFeed', 'combined', feedSeed, qApplied],
     queryFn: () =>
       getArtCombinedPage({
