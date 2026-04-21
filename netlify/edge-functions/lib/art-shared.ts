@@ -215,16 +215,30 @@ export function commonsPathToUrl(fileName: string): string {
 export async function fetchWikidataPage(page: number): Promise<{ items: NormalizedArtwork[]; nextPage: number }> {
   const limit = 12;
   const offset = page * limit;
+  // WDQS perf: `SERVICE wikibase:label` and un-scoped joins over P18×P31 explode work *before* LIMIT.
+  // Pattern: inner subquery returns only LIMIT rows (?item, ?image); outer adds rdfs:label on ≤12 items.
+  // Still direct `wdt:P31` only (no P279*). Extend VALUES ?class if you need more work types.
   const query = `
-SELECT ?item ?itemLabel ?image ?creator ?creatorLabel ?article WHERE {
-  VALUES ?type { wd:Q3305213 wd:Q860861 wd:Q125191 }
-  ?item wdt:P31/wdt:P279* ?type .
-  ?item wdt:P18 ?image .
-  OPTIONAL { ?item wdt:P170 ?creator. }
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+SELECT ?item ?itemLabel ?image ?creator ?creatorLabel WHERE {
+  {
+    SELECT ?item ?image WHERE {
+      VALUES ?class { wd:Q3305213 wd:Q128115 wd:Q125191 }
+      ?item wdt:P31 ?class .
+      ?item wdt:P18 ?image .
+    }
+    LIMIT ${limit}
+    OFFSET ${offset}
+  }
+  OPTIONAL {
+    ?item rdfs:label ?itemLabel .
+    FILTER((LANG(?itemLabel)) = "en")
+  }
+  OPTIONAL { ?item wdt:P170 ?creator . }
+  OPTIONAL {
+    ?creator rdfs:label ?creatorLabel .
+    FILTER((LANG(?creatorLabel)) = "en")
+  }
 }
-LIMIT ${limit}
-OFFSET ${offset}
 `.trim();
 
   const res = await fetch("https://query.wikidata.org/sparql", {
@@ -232,6 +246,8 @@ OFFSET ${offset}
     headers: {
       Accept: "application/sparql-results+json",
       "Content-Type": "application/x-www-form-urlencoded",
+      // https://wikidata.wikidata.org/wiki/Wikidata:Data_access — identify the client
+      "User-Agent": "DeepLearn/1.0 (https://github.com/; art-wikidata edge)",
     },
     body: new URLSearchParams({ query }),
   });
@@ -242,7 +258,16 @@ OFFSET ${offset}
   const json = (await res.json()) as {
     results?: { bindings?: Array<Record<string, { value?: string; type?: string }>> };
   };
-  const bindings = json.results?.bindings ?? [];
+  const bindingsRaw = json.results?.bindings ?? [];
+  const bindings: typeof bindingsRaw = [];
+  const seenItems = new Set<string>();
+  for (const b of bindingsRaw) {
+    const uri = b.item?.value;
+    if (!uri || seenItems.has(uri)) continue;
+    seenItems.add(uri);
+    bindings.push(b);
+  }
+
   const items: NormalizedArtwork[] = bindings.map((b) => {
     const itemUri = b.item?.value ?? "";
     const qid = itemUri.match(/entity\/(Q\d+)/)?.[1] ?? itemUri;
@@ -258,7 +283,7 @@ OFFSET ${offset}
     }
     const creatorUri = b.creator?.value ?? "";
     const creatorId = creatorUri.match(/entity\/(Q\d+)/)?.[1] ?? null;
-    const label = b.itemLabel?.value ?? "Untitled";
+    const label = b.itemLabel?.value?.trim() || (qid.startsWith("Q") ? `Work ${qid}` : "Untitled");
     const creatorLabel = b.creatorLabel?.value ?? null;
     return {
       source: "wikidata" as const,
