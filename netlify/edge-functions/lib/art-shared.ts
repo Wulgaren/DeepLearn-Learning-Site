@@ -249,9 +249,14 @@ export async function fetchWikidataPage(
 ): Promise<{ items: NormalizedArtwork[]; nextPage: number }> {
   const offset = page * limit;
   // WDQS perf: `SERVICE wikibase:label` and un-scoped joins over P18×P31 explode work *before* LIMIT.
-  // Pattern: inner subquery returns only LIMIT rows (?item, ?image); outer adds rdfs:label on ≤12 items.
-  // Still direct `wdt:P31` only (no P279*). Extend VALUES ?class if you need more work types.
+  // Pattern: inner subquery returns only LIMIT rows (?item, ?image); outer adds labels on ≤12 items.
+  // Use wikibase:label with language fallback — plain rdfs:label + LANG=en misses items with no English label
+  // (they became "Work Q…" before). Still direct `wdt:P31` only (no P279*). Extend VALUES ?class if needed.
   const query = `
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
 SELECT ?item ?itemLabel ?image ?creator ?creatorLabel WHERE {
   {
     SELECT ?item ?image WHERE {
@@ -262,15 +267,10 @@ SELECT ?item ?itemLabel ?image ?creator ?creatorLabel WHERE {
     LIMIT ${limit}
     OFFSET ${offset}
   }
-  OPTIONAL {
-    ?item rdfs:label ?itemLabel .
-    FILTER((LANG(?itemLabel)) = "en")
+  SERVICE wikibase:label {
+    bd:serviceParam wikibase:language "en,de,fr,es,it,pt,ru,ja,zh,mul".
   }
   OPTIONAL { ?item wdt:P170 ?creator . }
-  OPTIONAL {
-    ?creator rdfs:label ?creatorLabel .
-    FILTER((LANG(?creatorLabel)) = "en")
-  }
 }
 `.trim();
 
@@ -316,7 +316,9 @@ SELECT ?item ?itemLabel ?image ?creator ?creatorLabel WHERE {
     }
     const creatorUri = b.creator?.value ?? "";
     const creatorId = creatorUri.match(/entity\/(Q\d+)/)?.[1] ?? null;
-    const label = b.itemLabel?.value?.trim() || (qid.startsWith("Q") ? `Work ${qid}` : "Untitled");
+    const label =
+      b.itemLabel?.value?.trim() ||
+      (qid.startsWith("Q") ? `Untitled (${qid})` : "Untitled");
     const creatorLabel = b.creatorLabel?.value ?? null;
     return {
       source: "wikidata" as const,

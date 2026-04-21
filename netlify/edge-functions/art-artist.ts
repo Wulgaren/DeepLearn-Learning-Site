@@ -57,6 +57,10 @@ async function fetchWikidataByArtist(
   offset: number
 ): Promise<{ items: NormalizedArtwork[]; nextOffset: number }> {
   const query = `
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
 SELECT ?item ?itemLabel ?image ?creator ?creatorLabel WHERE {
   {
     SELECT ?item ?image WHERE {
@@ -69,15 +73,10 @@ SELECT ?item ?itemLabel ?image ?creator ?creatorLabel WHERE {
     LIMIT ${BATCH}
     OFFSET ${offset}
   }
-  OPTIONAL {
-    ?item rdfs:label ?itemLabel .
-    FILTER((LANG(?itemLabel)) = "en")
+  SERVICE wikibase:label {
+    bd:serviceParam wikibase:language "en,de,fr,es,it,pt,ru,ja,zh,mul".
   }
   OPTIONAL { ?item wdt:P170 ?creator . }
-  OPTIONAL {
-    ?creator rdfs:label ?creatorLabel .
-    FILTER((LANG(?creatorLabel)) = "en")
-  }
 }
 `.trim();
 
@@ -123,7 +122,8 @@ SELECT ?item ?itemLabel ?image ?creator ?creatorLabel WHERE {
     const creatorUri = b.creator?.value ?? "";
     const creatorId = creatorUri.match(/entity\/(Q\d+)/)?.[1] ?? null;
     const label =
-      b.itemLabel?.value?.trim() || (qidItem.startsWith("Q") ? `Work ${qidItem}` : "Untitled");
+      b.itemLabel?.value?.trim() ||
+      (qidItem.startsWith("Q") ? `Untitled (${qidItem})` : "Untitled");
     const creatorLabel = b.creatorLabel?.value ?? null;
     return {
       source: "wikidata" as const,

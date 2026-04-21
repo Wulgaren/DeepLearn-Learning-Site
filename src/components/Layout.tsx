@@ -10,14 +10,12 @@ const navInactiveClass = 'text-zinc-300 hover:text-zinc-100';
 
 function SidebarContent({
   isPublicThread,
-  user,
   homeActive,
   topicsActive,
   artActive,
   onLogout,
 }: {
   isPublicThread: boolean;
-  user: { email?: string | null } | null;
   homeActive: boolean;
   topicsActive: boolean;
   artActive: boolean;
@@ -74,8 +72,7 @@ function SidebarContent({
           </Link>
         ) : (
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-            <p className="m-0 text-xs text-zinc-500">Signed in as</p>
-            <p className="m-0 mt-1 text-sm font-medium truncate">{user?.email}</p>
+            <p className="m-0 text-sm font-medium text-zinc-300">Signed in</p>
             <button
               type="button"
               onClick={onLogout}
@@ -159,7 +156,6 @@ export default function Layout() {
             <div className="flex h-full flex-col">
               <SidebarContent
                 isPublicThread={isPublicThread}
-                user={user}
                 homeActive={homeActive}
                 topicsActive={topicsActive}
                 artActive={artActive}
@@ -183,7 +179,6 @@ export default function Layout() {
                 <div className="flex h-full flex-col px-2">
                   <SidebarContent
                     isPublicThread={isPublicThread}
-                    user={user}
                     homeActive={homeActive}
                     topicsActive={topicsActive}
                     artActive={artActive}
@@ -210,21 +205,16 @@ export default function Layout() {
                   {headerTitle}
                 </span>
                 {!isPublicThread && (
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs text-zinc-500 truncate min-w-0">
-                      {user?.email}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setMobileMenuOpen(true)}
-                      className="lg:hidden p-2 -m-2 rounded-full hover:bg-zinc-800/80 text-zinc-400 hover:text-zinc-100 shrink-0"
-                      aria-label="Open menu"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                      </svg>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMobileMenuOpen(true)}
+                    className="lg:hidden p-2 -m-2 rounded-full hover:bg-zinc-800/80 text-zinc-400 hover:text-zinc-100 shrink-0"
+                    aria-label="Open menu"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
                 )}
               </div>
             </header>

@@ -218,16 +218,7 @@ export default function ArtworkDetailModal({
           {selected.artist?.label && (
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-sm text-zinc-400">Artist:</span>
-              {selected.artist.wikiUrl ? (
-                <a
-                  href={selected.artist.wikiUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm text-sky-400 hover:underline"
-                >
-                  {selected.artist.label}
-                </a>
-              ) : selected.source === 'met' && inAppArtistHref(selected) ? (
+              {inAppArtistHref(selected) ? (
                 <Link
                   to={inAppArtistHref(selected)!}
                   className="text-sm text-sky-400 hover:underline"
@@ -238,6 +229,15 @@ export default function ArtworkDetailModal({
                 >
                   {selected.artist.label}
                 </Link>
+              ) : selected.artist.wikiUrl ? (
+                <a
+                  href={selected.artist.wikiUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-sky-400 hover:underline"
+                >
+                  {selected.artist.label}
+                </a>
               ) : (
                 <span className="text-sm text-zinc-200">{selected.artist.label}</span>
               )}
