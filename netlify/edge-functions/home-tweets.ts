@@ -7,7 +7,7 @@ import {
   log,
   logAi,
   sanitizeForPrompt,
-  groqCompletion,
+  groqCompletionWithFallback,
 } from "./lib/shared.ts";
 
 const FN = "home-tweets";
@@ -136,14 +136,18 @@ Rules: Use single quotes inside strings if needed; avoid unescaped double quotes
   const model = "openai/gpt-oss-120b";
   let raw: string;
   try {
-    const result = await groqCompletion(groqApiKey, {
-      model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.8,
-      max_tokens: 2048,
-    });
+    const result = await groqCompletionWithFallback(
+      groqApiKey,
+      {
+        model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.8,
+        max_tokens: 2048,
+      },
+      { fn: FN }
+    );
     raw = result.content;
-    logAi(FN, { model, rawResponse: raw, usage: result.usage });
+    logAi(FN, { model: result.modelUsed, rawResponse: raw, usage: result.usage });
   } catch (err) {
     logAi(FN, { model, error: err });
     return jsonResponse({ error: "AI service error" }, 502);

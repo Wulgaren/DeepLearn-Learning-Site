@@ -2,7 +2,7 @@
 import {
   classifyNeedsWebGrounding,
   GROQ_COMPOUND_MODEL,
-  groqCompletion,
+  groqCompletionWithFallback,
   logAi,
 } from "./shared.ts";
 
@@ -65,14 +65,18 @@ Rules: One JSON object only. No code fences. No newlines inside strings. Use sin
 
   let raw: string;
   try {
-    const result = await groqCompletion(groqApiKey, {
-      model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 2048,
-    });
+    const result = await groqCompletionWithFallback(
+      groqApiKey,
+      {
+        model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 2048,
+      },
+      { fn: logFn }
+    );
     raw = result.content;
-    logAi(logFn, { model, rawResponse: raw, usage: result.usage });
+    logAi(logFn, { model: result.modelUsed, rawResponse: raw, usage: result.usage });
   } catch (err) {
     logAi(logFn, { model, error: err });
     return { ok: false, error: "AI service error", status: 502 };

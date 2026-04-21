@@ -9,7 +9,7 @@ import {
   validateUuid,
   sanitizeForPrompt,
   sanitizeForDb,
-  groqCompletion,
+  groqCompletionWithFallback,
   classifyNeedsWebGrounding,
   GROQ_COMPOUND_MODEL,
 } from "./lib/shared.ts";
@@ -108,14 +108,18 @@ ${question}
 
   let answer: string;
   try {
-    const result = await groqCompletion(groqApiKey, {
-      model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.6,
-      max_tokens: 400,
-    });
+    const result = await groqCompletionWithFallback(
+      groqApiKey,
+      {
+        model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.6,
+        max_tokens: 400,
+      },
+      { fn: FN }
+    );
     answer = (result.content ?? "").trim();
-    logAi(FN, { model, rawResponse: answer, usage: result.usage });
+    logAi(FN, { model: result.modelUsed, rawResponse: answer, usage: result.usage });
   } catch (err) {
     logAi(FN, { model, error: err });
     return jsonResponse({ error: "AI service error" }, 502);

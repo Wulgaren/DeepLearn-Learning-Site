@@ -131,8 +131,15 @@ export function logAi(
 
 const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
 const CLASSIFIER_MODEL = "llama-3.1-8b-instant";
+/** When primary model hits TPM/rate limits (429), retry with this model. */
+export const GROQ_FALLBACK_MODEL = CLASSIFIER_MODEL;
 export const GROQ_COMPOUND_MODEL = "groq/compound";
 const CLASSIFIER_MAX_TOKENS = 10;
+
+function isGroqRateLimitError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes("Groq API 429");
+}
 
 export interface GroqMessage {
   role: "user" | "assistant" | "system";
@@ -174,6 +181,37 @@ export async function groqCompletion(
   };
   const content = data.choices?.[0]?.message?.content?.trim() ?? "";
   return { content, usage: data.usage };
+}
+
+/**
+ * Same as {@link groqCompletion}, but on Groq HTTP 429 (rate / TPM limit) retries once with
+ * {@link GROQ_FALLBACK_MODEL} when the requested model differs from the fallback.
+ */
+export async function groqCompletionWithFallback(
+  apiKey: string,
+  opts: GroqCompletionOptions,
+  logContext?: { fn: string }
+): Promise<{
+  content: string;
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  modelUsed: string;
+}> {
+  const fallbackModel = GROQ_FALLBACK_MODEL;
+  try {
+    const result = await groqCompletion(apiKey, opts);
+    return { ...result, modelUsed: opts.model };
+  } catch (err) {
+    if (!isGroqRateLimitError(err) || opts.model === fallbackModel) {
+      throw err;
+    }
+    const fn = logContext?.fn ?? "groq";
+    log(fn, "warn", "Groq rate limit on primary model, retrying fallback", {
+      primary: opts.model,
+      fallback: fallbackModel,
+    });
+    const result = await groqCompletion(apiKey, { ...opts, model: fallbackModel });
+    return { ...result, modelUsed: fallbackModel };
+  }
 }
 
 /** Returns true if the classifier reply starts with YES (use web grounding). */
